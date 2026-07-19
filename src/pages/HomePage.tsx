@@ -2,41 +2,68 @@
 
 import { useEffect, useState } from "react";
 import { ZatGoApi } from "@zatgo/erpnext";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  StatCard,
+} from "@zatgo/ui";
+import { LayoutDashboard } from "@zatgo/icons";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 
-const PRODUCT = ZatGoApi.accounting.ping;
-const LIST = ZatGoApi.accounting.invoicesList;
-const TITLE = "Accounting";
-
 export function HomePage() {
-  const [status, setStatus] = useState<string>("Loading…");
-  const [count, setCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hubOk, setHubOk] = useState(false);
+  const [count, setCount] = useState(0);
+  const [stub, setStub] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await callZatGoApi(ZatGoApi.accounting.ping);
+      setHubOk(true);
+      const env = await callZatGoApi<unknown[]>(ZatGoApi.accounting.invoicesList, {
+        page: 1,
+        page_size: 20,
+      });
+      const rows = Array.isArray(env.data) ? env.data.length : 0;
+      setCount(typeof env.meta?.total === "number" ? Number(env.meta.total) : rows);
+      setStub(Boolean(env.meta?.stub));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "API error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        await callZatGoApi(PRODUCT);
-        const env = await callZatGoApi<unknown[]>(LIST, { page: 1, page_size: 20 });
-        if (cancelled) return;
-        const rows = Array.isArray(env.data) ? env.data.length : 0;
-        setCount(typeof env.meta?.total === "number" ? Number(env.meta.total) : rows);
-        setStatus(env.meta?.stub ? "Connected (API stub — no DocTypes yet)" : "Connected");
-      } catch (e) {
-        if (!cancelled) setStatus(e instanceof Error ? e.message : "API error");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void load();
   }, []);
 
+  if (loading) return <LoadingState label="Loading accounting…" />;
+  if (error) {
+    return <ErrorState title="Accounting unavailable" description={error} onRetry={() => void load()} />;
+  }
+
   return (
-    <div className="space-y-2">
-      <h1 className="text-2xl font-semibold">Accounting</h1>
-      <p className="text-sm text-[var(--color-muted-foreground)]">Status: {status}</p>
-      {count !== null ? (
-        <p className="text-sm text-[var(--color-muted-foreground)]">Records: {count}</p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Accounting"
+        description={hubOk ? (stub ? "Connected · API stub" : "Connected · hub ok") : "Connected"}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Invoices" value={count} icon={LayoutDashboard} />
+      </div>
+
+      {stub ? (
+        <EmptyState
+          title="API stub"
+          description="Accounting DocTypes are not wired yet. Hub ping succeeded; list endpoints return stub data."
+        />
       ) : null}
     </div>
   );

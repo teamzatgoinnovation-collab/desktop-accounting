@@ -1,16 +1,14 @@
-import { Button } from "@zatgo/ui";
+import { Button, PageHeader } from "@zatgo/ui";
 import { Loader2 } from "@zatgo/icons";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/PageHeader";
 import { logoutFromErpnext, testConnection } from "@/lib/client";
 import { useSessionStore } from "@/store/session";
 
-
 export function ConnectionPage() {
   const navigate = useNavigate();
-const connected = useSessionStore((s) => s.connected);
+  const connected = useSessionStore((s) => s.connected);
   const user = useSessionStore((s) => s.user);
   const fullName = useSessionStore((s) => s.fullName);
   const lastError = useSessionStore((s) => s.lastError);
