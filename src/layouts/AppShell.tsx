@@ -6,7 +6,19 @@ import {
   type AppShellNavItem,
   type CommandPaletteItem,
 } from "@zatgo/ui";
-import { LayoutDashboard, Moon, Settings, Sun } from "@zatgo/icons";
+import {
+  BookOpen,
+  Building2,
+  CreditCard,
+  FileText,
+  Layers,
+  LayoutDashboard,
+  Moon,
+  Package,
+  Settings,
+  Sun,
+  Wallet,
+} from "@zatgo/icons";
 import { useMemo, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useThemeStore } from "@/store/theme";
@@ -14,7 +26,14 @@ import { useSessionStore } from "@/store/session";
 import { logoutFromErpnext } from "@/lib/client";
 
 const nav: AppShellNavItem[] = [
-  { href: "/", label: "Home", icon: LayoutDashboard, end: true },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { href: "/invoices", label: "Invoices", icon: FileText, section: "Accounting" },
+  { href: "/payments", label: "Payments", icon: Wallet, section: "Accounting" },
+  { href: "/journals", label: "Journals", icon: BookOpen, section: "Accounting" },
+  { href: "/reports", label: "Reports", icon: CreditCard, section: "Accounting" },
+  { href: "/items", label: "Items", icon: Package, section: "Inventory" },
+  { href: "/stock", label: "Stock", icon: Layers, section: "Inventory" },
+  { href: "/warehouses", label: "Warehouses", icon: Building2, section: "Inventory" },
   { href: "/connection", label: "Connection", icon: Settings },
 ];
 
@@ -49,7 +68,7 @@ export function AppShell() {
       ...nav.map((item) => ({
         id: `nav-${item.href}`,
         label: item.label,
-        group: "Navigate",
+        group: item.section ? `Navigate · ${item.section}` : "Navigate",
         onSelect: () => navigate(item.href),
       })),
       {
