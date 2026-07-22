@@ -19,36 +19,40 @@ import {
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 
-type Warehouse = {
+type Customer = {
   id: string;
   name: string;
-  company?: string;
-  parent_warehouse?: string;
+  customer_name?: string;
+  customer_type?: string;
+  territory?: string;
+  email?: string;
+  phone?: string;
 };
 
-export function WarehousesPage() {
+export function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<Warehouse[]>([]);
+  const [rows, setRows] = useState<Customer[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
-    warehouse_name: "",
-    company: "",
-    parent_warehouse: "",
+    customer_name: "",
+    email: "",
+    phone: "",
+    customer_type: "Company",
   });
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Warehouse[]>(ZatGoApi.warehouse.warehousesList, {
+      const env = await callZatGoApi<Customer[]>(ZatGoApi.accounting.customersList, {
         page: 1,
         page_size: 100,
       });
       setRows(Array.isArray(env.data) ? env.data : []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load warehouses");
+      setError(e instanceof Error ? e.message : "Failed to load customers");
     } finally {
       setLoading(false);
     }
@@ -58,41 +62,44 @@ export function WarehousesPage() {
     void load();
   }, []);
 
-  const columns = useMemo<ColumnDef<Warehouse>[]>(
+  const columns = useMemo<ColumnDef<Customer>[]>(
     () => [
       {
-        header: "Warehouse",
+        header: "Name",
         accessorKey: "name",
         cell: ({ row }) => (
           <Link
             className="font-medium underline-offset-2 hover:underline"
-            to={`/warehouses/${encodeURIComponent(row.original.id)}`}
+            to={`/customers/${encodeURIComponent(row.original.id)}`}
           >
             {row.original.name}
           </Link>
         ),
       },
-      { header: "ID", accessorKey: "id" },
-      { header: "Company", accessorKey: "company" },
+      { header: "Type", accessorKey: "customer_type" },
+      { header: "Territory", accessorKey: "territory" },
+      { header: "Email", accessorKey: "email" },
+      { header: "Phone", accessorKey: "phone" },
     ],
     [],
   );
 
   const onCreate = async () => {
-    if (!form.warehouse_name.trim()) {
-      toast.error("Warehouse name is required");
+    if (!form.customer_name.trim()) {
+      toast.error("Name is required");
       return;
     }
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.warehouse.warehousesCreate, {
-        warehouse_name: form.warehouse_name.trim(),
-        company: form.company.trim() || undefined,
-        parent_warehouse: form.parent_warehouse.trim() || undefined,
+      await callZatGoApi(ZatGoApi.accounting.customersCreate, {
+        customer_name: form.customer_name.trim(),
+        customer_type: form.customer_type,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
       });
-      toast.success("Warehouse created");
+      toast.success("Customer created");
       setOpen(false);
-      setForm({ warehouse_name: "", company: "", parent_warehouse: "" });
+      setForm({ customer_name: "", email: "", phone: "", customer_type: "Company" });
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Create failed");
@@ -101,48 +108,46 @@ export function WarehousesPage() {
     }
   };
 
-  if (loading) return <LoadingState label="Loading warehouses…" />;
-  if (error) {
-    return <ErrorState title="Warehouses unavailable" description={error} onRetry={() => void load()} />;
-  }
+  if (loading) return <LoadingState label="Loading customers…" />;
+  if (error) return <ErrorState title="Customers unavailable" description={error} onRetry={() => void load()} />;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Warehouses"
-        description="Non-group warehouse locations."
-        actions={<Button onClick={() => setOpen(true)}>Add warehouse</Button>}
+        title="Customers"
+        description="People and companies who buy from you."
+        actions={<Button onClick={() => setOpen(true)}>Add customer</Button>}
       />
-      <DataTable data={rows} columns={columns} emptyMessage="No warehouses yet." />
+      <DataTable data={rows} columns={columns} emptyMessage="No customers yet." />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add warehouse</DialogTitle>
+            <DialogTitle>Add customer</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <Label htmlFor="wname">Name</Label>
+              <Label htmlFor="cname">Name</Label>
               <Input
-                id="wname"
-                value={form.warehouse_name}
-                onChange={(e) => setForm((f) => ({ ...f, warehouse_name: e.target.value }))}
+                id="cname"
+                value={form.customer_name}
+                onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wcompany">Company (optional)</Label>
+              <Label htmlFor="cemail">Email</Label>
               <Input
-                id="wcompany"
-                value={form.company}
-                onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
+                id="cemail"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wparent">Parent warehouse (optional)</Label>
+              <Label htmlFor="cphone">Phone</Label>
               <Input
-                id="wparent"
-                value={form.parent_warehouse}
-                onChange={(e) => setForm((f) => ({ ...f, parent_warehouse: e.target.value }))}
+                id="cphone"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               />
             </div>
           </div>

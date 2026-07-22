@@ -11,12 +11,14 @@ import {
   Building2,
   CreditCard,
   FileText,
+  KeyRound,
   Layers,
   LayoutDashboard,
   Moon,
   Package,
   Settings,
   Sun,
+  Users,
   Wallet,
 } from "@zatgo/icons";
 import { useMemo, useEffect, useState } from "react";
@@ -27,14 +29,16 @@ import { logoutFromErpnext } from "@/lib/client";
 
 const nav: AppShellNavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { href: "/customers", label: "Customers", icon: Users, section: "Accounting" },
   { href: "/invoices", label: "Invoices", icon: FileText, section: "Accounting" },
   { href: "/payments", label: "Payments", icon: Wallet, section: "Accounting" },
   { href: "/journals", label: "Journals", icon: BookOpen, section: "Accounting" },
   { href: "/reports", label: "Reports", icon: CreditCard, section: "Accounting" },
-  { href: "/items", label: "Items", icon: Package, section: "Inventory" },
+  { href: "/products", label: "Products", icon: Package, section: "Inventory" },
   { href: "/stock", label: "Stock", icon: Layers, section: "Inventory" },
   { href: "/warehouses", label: "Warehouses", icon: Building2, section: "Inventory" },
-  { href: "/connection", label: "Connection", icon: Settings },
+  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/connection", label: "Connection", icon: KeyRound },
 ];
 
 export function AppShell() {

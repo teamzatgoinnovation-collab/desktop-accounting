@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ZatGoApi } from "@zatgo/erpnext";
 import { DataTable, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
@@ -42,7 +43,18 @@ export function InvoicesPage() {
 
   const columns = useMemo<ColumnDef<Invoice>[]>(
     () => [
-      { header: "Invoice", accessorKey: "name" },
+      {
+        header: "Invoice",
+        accessorKey: "name",
+        cell: ({ row }) => (
+          <Link
+            className="font-medium underline-offset-2 hover:underline"
+            to={`/invoices/${encodeURIComponent(row.original.name)}`}
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
       { header: "Customer", accessorKey: "customer" },
       { header: "Status", accessorKey: "status" },
       {
