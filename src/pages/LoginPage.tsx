@@ -2,7 +2,7 @@ import { ErpnextLoginCard } from "@zatgo/ui";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { loginWithPassword, testConnection } from "@/lib/client";
+import { loginWithPassword } from "@/lib/client";
 import { useSessionStore } from "@/store/session";
 
 export function LoginPage() {
@@ -10,7 +10,6 @@ export function LoginPage() {
   const connection = useSessionStore((s) => s.connection);
   const connected = useSessionStore((s) => s.connected);
   const lastError = useSessionStore((s) => s.lastError);
-  const setConnection = useSessionStore((s) => s.setConnection);
 
   const [usr, setUsr] = useState("");
   const [pwd, setPwd] = useState("");
@@ -40,17 +39,6 @@ export function LoginPage() {
     }
   };
 
-  const onPing = async () => {
-    setBusy(true);
-    try {
-      const result = await testConnection();
-      if (result.ok) toast.success(result.message);
-      else toast.error(result.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <ErpnextLoginCard
       productTitle="Accounting"
@@ -61,9 +49,6 @@ export function LoginPage() {
       onUsrChange={setUsr}
       onPwdChange={setPwd}
       onSubmit={(e) => void onLogin(e)}
-      onTestSite={() => void onPing()}
-      siteUrl={connection.baseUrl}
-      onSiteUrlChange={(baseUrl) => setConnection({ baseUrl })}
       footerHint="Login runs in the Electron process and stores a Frappe session cookie (sid)."
     />
   );

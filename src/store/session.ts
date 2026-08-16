@@ -12,7 +12,6 @@ type SessionState = {
   fullName: string | null;
   lastError: string | null;
   allowMockWithoutLogin: boolean;
-  setConnection: (patch: Partial<ConnectionConfig>) => void;
   setSession: (input: {
     connected: boolean;
     user?: string | null;
@@ -26,7 +25,7 @@ type SessionState = {
 
 const defaultBaseUrl =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_FRAPPE_BASE_URL) ||
-  "https://demo.zatgo.online";
+  "https://accounting.zatgo.online";
 
 export const useSessionStore = create<SessionState>()(
   persist(
@@ -37,14 +36,6 @@ export const useSessionStore = create<SessionState>()(
       fullName: null,
       lastError: null,
           allowMockWithoutLogin: false,
-      setConnection: (patch) =>
-        set((state) => ({
-          connection: { ...state.connection, ...patch },
-          connected: false,
-          user: null,
-          fullName: null,
-          lastError: null,
-        })),
       setSession: ({ connected, user = null, fullName = null, error = null, baseUrl }) =>
         set((state) => ({
           connected,
@@ -68,8 +59,9 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: "zatgo-accounting-desktop-session",
+      // baseUrl is intentionally NOT persisted — it always comes fresh from
+      // VITE_FRAPPE_BASE_URL (.env) on every launch, not a cached override.
       partialize: (s) => ({
-        connection: { baseUrl: s.connection.baseUrl },
         allowMockWithoutLogin: s.allowMockWithoutLogin,
       }),
     },
