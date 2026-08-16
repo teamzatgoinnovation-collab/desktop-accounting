@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { DataTable, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
+import { Button, DataTable, ErrorState, Input, Label, LoadingState, PageHeader } from "@zatgo/ui";
+import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
+import { enqueueCreate, loadCachedList } from "@/lib/offline";
 import { money } from "@/lib/format";
 
 type Journal = {
@@ -12,28 +15,57 @@ type Journal = {
   date?: string;
   total_debit?: number;
   total_credit?: number;
+  docstatus?: number;
   status?: string;
 };
+
+type Account = { id: string; name: string; account_name?: string };
+type Line = { account: string; debit: number; credit: number };
 
 export function JournalsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Journal[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [lines, setLines] = useState<Line[]>([
+    { account: "", debit: 0, credit: 0 },
+    { account: "", debit: 0, credit: 0 },
+  ]);
+  const [remark, setRemark] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const env = await callZatGoApi<Journal[]>(ZatGoApi.accounting.journalsList, {
-        page: 1,
-        page_size: 50,
-      });
-      setRows(Array.isArray(env.data) ? env.data : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load journals");
-    } finally {
-      setLoading(false);
+    // Two independent cache-then-network loads: a network failure (offline)
+    // must never block the create form behind a full-page error — accounts
+    // (needed for the picker) and the journal list degrade independently.
+    const [journalsResult, accountsResult] = await Promise.allSettled([
+      loadCachedList<Journal>("journals", async () => {
+        const env = await callZatGoApi<Journal[]>(ZatGoApi.accounting.journalsList, { page: 1, page_size: 50 });
+        return Array.isArray(env.data) ? env.data : [];
+      }),
+      loadCachedList<Account>("accounts", async () => {
+        const env = await callZatGoApi<Account[]>(ZatGoApi.accounting.journalsListAccounts, {
+          page: 1,
+          page_size: 100,
+        });
+        return Array.isArray(env.data) ? env.data : [];
+      }),
+    ]);
+
+    if (journalsResult.status === "fulfilled") {
+      setRows(journalsResult.value.data);
+    } else if (rows.length === 0) {
+      setError(
+        journalsResult.reason instanceof Error ? journalsResult.reason.message : "Failed to load journals",
+      );
     }
+    if (accountsResult.status === "fulfilled") {
+      setAccounts(accountsResult.value.data);
+      if (accountsResult.value.stale) toast.info("Showing last-known accounts — offline");
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -42,7 +74,17 @@ export function JournalsPage() {
 
   const columns = useMemo<ColumnDef<Journal>[]>(
     () => [
-      { header: "Journal", accessorKey: "name" },
+      {
+        header: "Journal",
+        cell: ({ row }) => (
+          <Link
+            className="font-medium underline-offset-2 hover:underline"
+            to={`/journals/${encodeURIComponent(row.original.name)}`}
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
       { header: "Title", accessorKey: "title" },
       { header: "Date", accessorKey: "date" },
       {
@@ -58,13 +100,115 @@ export function JournalsPage() {
     [],
   );
 
+  const debitTotal = lines.reduce((s, l) => s + Number(l.debit || 0), 0);
+  const creditTotal = lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+
+  const onCreate = async () => {
+    const valid = lines.filter((l) => l.account && (l.debit > 0 || l.credit > 0));
+    if (valid.length < 2) {
+      toast.error("Need at least two account lines");
+      return;
+    }
+    if (Math.abs(debitTotal - creditTotal) > 0.005) {
+      toast.error("Debit and credit must match");
+      return;
+    }
+    setBusy(true);
+    try {
+      await enqueueCreate({
+        entityType: "journal_entry",
+        method: ZatGoApi.accounting.journalsCreate,
+        args: { accounts: valid, user_remark: remark || undefined },
+      });
+      toast.success("Journal queued — syncing");
+      setLines([
+        { account: "", debit: 0, credit: 0 },
+        { account: "", debit: 0, credit: 0 },
+      ]);
+      setRemark("");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading journals…" />;
-  if (error) return <ErrorState title="Journals unavailable" description={error} onRetry={() => void load()} />;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Journals" description="Manual journal entries." />
-      <DataTable data={rows} columns={columns} emptyMessage="No journals yet." />
+      <PageHeader title="Journals" description="Simple double-entry adjustments." />
+
+      <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4">
+        <h2 className="text-lg font-medium">New journal</h2>
+        <div className="space-y-1">
+          <Label htmlFor="remark">Note</Label>
+          <Input id="remark" value={remark} onChange={(e) => setRemark(e.target.value)} />
+        </div>
+        {lines.map((line, idx) => (
+          <div key={idx} className="grid gap-2 sm:grid-cols-3">
+            <select
+              className="h-10 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm"
+              value={line.account}
+              onChange={(e) =>
+                setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, account: e.target.value } : l)))
+              }
+            >
+              <option value="">Account…</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.account_name || a.name}
+                </option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              min={0}
+              step="any"
+              placeholder="Debit"
+              value={line.debit || ""}
+              onChange={(e) =>
+                setLines((prev) =>
+                  prev.map((l, i) => (i === idx ? { ...l, debit: Number(e.target.value), credit: 0 } : l)),
+                )
+              }
+            />
+            <Input
+              type="number"
+              min={0}
+              step="any"
+              placeholder="Credit"
+              value={line.credit || ""}
+              onChange={(e) =>
+                setLines((prev) =>
+                  prev.map((l, i) => (i === idx ? { ...l, credit: Number(e.target.value), debit: 0 } : l)),
+                )
+              }
+            />
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Button
+            variant="outline"
+            onClick={() => setLines((prev) => [...prev, { account: "", debit: 0, credit: 0 }])}
+          >
+            Add line
+          </Button>
+          <span className="tabular-nums text-[var(--color-muted-foreground)]">
+            Debit {money(debitTotal)} · Credit {money(creditTotal)}
+          </span>
+          <Button disabled={busy} onClick={() => void onCreate()}>
+            Save draft
+          </Button>
+        </div>
+      </section>
+
+      {error ? (
+        <ErrorState title="Journal list unavailable" description={error} onRetry={() => void load()} />
+      ) : (
+        <DataTable data={rows} columns={columns} emptyMessage="No journals yet." />
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
+import { enqueueCreate, loadCachedList } from "@/lib/offline";
 import { money } from "@/lib/format";
 
 type Item = {
@@ -49,11 +50,12 @@ export function ProductsPage() {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Item[]>(ZatGoApi.warehouse.itemsList, {
-        page: 1,
-        page_size: 100,
+      const result = await loadCachedList<Item>("products", async () => {
+        const env = await callZatGoApi<Item[]>(ZatGoApi.warehouse.itemsList, { page: 1, page_size: 100 });
+        return Array.isArray(env.data) ? env.data : [];
       });
-      setRows(Array.isArray(env.data) ? env.data : []);
+      setRows(result.data);
+      if (result.stale) toast.info("Showing last-known products — offline");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load products");
     } finally {
@@ -99,15 +101,19 @@ export function ProductsPage() {
     }
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.warehouse.itemsCreate, {
-        item_code: form.item_code.trim(),
-        item_name: form.item_name.trim() || form.item_code.trim(),
-        item_group: form.item_group || undefined,
-        stock_uom: form.stock_uom || undefined,
-        standard_rate: form.standard_rate ? Number(form.standard_rate) : 0,
-        is_stock_item: 1,
+      await enqueueCreate({
+        entityType: "item",
+        method: ZatGoApi.warehouse.itemsCreate,
+        args: {
+          item_code: form.item_code.trim(),
+          item_name: form.item_name.trim() || form.item_code.trim(),
+          item_group: form.item_group || undefined,
+          stock_uom: form.stock_uom || undefined,
+          standard_rate: form.standard_rate ? Number(form.standard_rate) : 0,
+          is_stock_item: 1,
+        },
       });
-      toast.success("Product created");
+      toast.success("Product queued — syncing");
       setOpen(false);
       setForm({
         item_code: "",

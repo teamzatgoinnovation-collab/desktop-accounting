@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
@@ -30,6 +30,8 @@ type Invoice = {
   total_taxes_and_charges?: number;
   items?: InvoiceItem[];
   zatca_qr_base64?: string;
+  is_return?: boolean;
+  return_against?: string | null;
 };
 
 type ZatcaPayload = {
@@ -44,6 +46,7 @@ type ZatcaPayload = {
 export function InvoiceDetailPage() {
   const { name: rawName } = useParams<{ name: string }>();
   const name = decodeURIComponent(rawName || "");
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -107,6 +110,20 @@ export function InvoiceDetailPage() {
             {invoice.docstatus === 0 ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
                 Submit
+              </Button>
+            ) : null}
+            {(invoice.outstanding || 0) > 0 && invoice.docstatus === 1 ? (
+              <Button
+                onClick={() =>
+                  navigate(`/payments?receive=${encodeURIComponent(invoice.name)}&amount=${invoice.outstanding}`)
+                }
+              >
+                Receive payment
+              </Button>
+            ) : null}
+            {invoice.docstatus === 1 && !invoice.is_return ? (
+              <Button variant="outline" onClick={() => navigate(`/invoices/${encodeURIComponent(invoice.name)}/return`)}>
+                Create return
               </Button>
             ) : null}
           </div>

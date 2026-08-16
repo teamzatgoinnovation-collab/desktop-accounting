@@ -6,8 +6,11 @@ import { ConnectionPage } from "@/pages/ConnectionPage";
 import { HomePage } from "@/pages/HomePage";
 import { InvoicesPage } from "@/pages/InvoicesPage";
 import { InvoiceDetailPage } from "@/pages/InvoiceDetailPage";
+import { NewSalesReturnPage } from "@/pages/NewSalesReturnPage";
+import { NewPurchaseReturnPage } from "@/pages/NewPurchaseReturnPage";
 import { PaymentsPage } from "@/pages/PaymentsPage";
 import { JournalsPage } from "@/pages/JournalsPage";
+import { JournalDetailPage } from "@/pages/JournalDetailPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { ProductsPage } from "@/pages/ProductsPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
@@ -16,7 +19,13 @@ import { WarehousesPage } from "@/pages/WarehousesPage";
 import { WarehouseDetailPage } from "@/pages/WarehouseDetailPage";
 import { CustomersPage } from "@/pages/CustomersPage";
 import { CustomerDetailPage } from "@/pages/CustomerDetailPage";
+import { SuppliersPage } from "@/pages/SuppliersPage";
+import { SupplierDetailPage } from "@/pages/SupplierDetailPage";
+import { BillsPage } from "@/pages/BillsPage";
+import { NewBillPage } from "@/pages/NewBillPage";
+import { BillDetailPage } from "@/pages/BillDetailPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { SyncCenterPage } from "@/pages/SyncCenterPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { useSessionStore } from "@/store/session";
 
@@ -44,8 +53,16 @@ function AppRoutes() {
         <Route path="customers/:name" element={<CustomerDetailPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="invoices/:name" element={<InvoiceDetailPage />} />
+        <Route path="invoices/:name/return" element={<NewSalesReturnPage />} />
+        <Route path="suppliers" element={<SuppliersPage />} />
+        <Route path="suppliers/:name" element={<SupplierDetailPage />} />
+        <Route path="bills" element={<BillsPage />} />
+        <Route path="bills/new" element={<NewBillPage />} />
+        <Route path="bills/:name" element={<BillDetailPage />} />
+        <Route path="bills/:name/return" element={<NewPurchaseReturnPage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="journals" element={<JournalsPage />} />
+        <Route path="journals/:name" element={<JournalDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="products/:name" element={<ProductDetailPage />} />
@@ -54,6 +71,7 @@ function AppRoutes() {
         <Route path="warehouses" element={<WarehousesPage />} />
         <Route path="warehouses/:name" element={<WarehouseDetailPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="sync" element={<SyncCenterPage />} />
         <Route path="connection" element={<ConnectionPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

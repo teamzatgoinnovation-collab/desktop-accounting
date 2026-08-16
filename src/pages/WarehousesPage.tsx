@@ -18,6 +18,7 @@ import {
 } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
+import { enqueueCreate, loadCachedList } from "@/lib/offline";
 
 type Warehouse = {
   id: string;
@@ -42,11 +43,15 @@ export function WarehousesPage() {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Warehouse[]>(ZatGoApi.warehouse.warehousesList, {
-        page: 1,
-        page_size: 100,
+      const result = await loadCachedList<Warehouse>("warehouses", async () => {
+        const env = await callZatGoApi<Warehouse[]>(ZatGoApi.warehouse.warehousesList, {
+          page: 1,
+          page_size: 100,
+        });
+        return Array.isArray(env.data) ? env.data : [];
       });
-      setRows(Array.isArray(env.data) ? env.data : []);
+      setRows(result.data);
+      if (result.stale) toast.info("Showing last-known warehouses — offline");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load warehouses");
     } finally {
@@ -85,12 +90,16 @@ export function WarehousesPage() {
     }
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.warehouse.warehousesCreate, {
-        warehouse_name: form.warehouse_name.trim(),
-        company: form.company.trim() || undefined,
-        parent_warehouse: form.parent_warehouse.trim() || undefined,
+      await enqueueCreate({
+        entityType: "warehouse",
+        method: ZatGoApi.warehouse.warehousesCreate,
+        args: {
+          warehouse_name: form.warehouse_name.trim(),
+          company: form.company.trim() || undefined,
+          parent_warehouse: form.parent_warehouse.trim() || undefined,
+        },
       });
-      toast.success("Warehouse created");
+      toast.success("Warehouse queued — syncing");
       setOpen(false);
       setForm({ warehouse_name: "", company: "", parent_warehouse: "" });
       await load();
