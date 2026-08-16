@@ -15,6 +15,7 @@ import { ReportsPage } from "@/pages/ReportsPage";
 import { ProductsPage } from "@/pages/ProductsPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
 import { ItemGroupsPage } from "@/pages/ItemGroupsPage";
+import { ChartOfAccountsPage } from "@/pages/ChartOfAccountsPage";
 import { StockPage } from "@/pages/StockPage";
 import { WarehousesPage } from "@/pages/WarehousesPage";
 import { WarehouseDetailPage } from "@/pages/WarehouseDetailPage";
@@ -50,6 +51,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<HomePage />} />
+        <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="customers/:name" element={<CustomerDetailPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
