@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { DataTable, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
+import { Button, DataTable, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
 
@@ -77,7 +77,15 @@ export function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Customer invoices" description="What customers owe you." />
+      <PageHeader
+        title="Customer invoices"
+        description="What customers owe you."
+        actions={
+          <Button asChild>
+            <Link to="/invoices/new">New invoice</Link>
+          </Button>
+        }
+      />
       <DataTable data={rows} columns={columns} emptyMessage="No invoices yet." />
     </div>
   );

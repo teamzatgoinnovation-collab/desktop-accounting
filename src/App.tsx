@@ -5,6 +5,7 @@ import { hydrateErpnextSession } from "@/lib/client";
 import { ConnectionPage } from "@/pages/ConnectionPage";
 import { HomePage } from "@/pages/HomePage";
 import { InvoicesPage } from "@/pages/InvoicesPage";
+import { NewInvoicePage } from "@/pages/NewInvoicePage";
 import { InvoiceDetailPage } from "@/pages/InvoiceDetailPage";
 import { NewSalesReturnPage } from "@/pages/NewSalesReturnPage";
 import { NewPurchaseReturnPage } from "@/pages/NewPurchaseReturnPage";
@@ -55,6 +56,7 @@ function AppRoutes() {
         <Route path="customers" element={<CustomersPage />} />
         <Route path="customers/:name" element={<CustomerDetailPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="invoices/new" element={<NewInvoicePage />} />
         <Route path="invoices/:name" element={<InvoiceDetailPage />} />
         <Route path="invoices/:name/return" element={<NewSalesReturnPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />
