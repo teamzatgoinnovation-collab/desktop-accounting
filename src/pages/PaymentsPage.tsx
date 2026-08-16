@@ -31,6 +31,11 @@ type Payment = {
   docstatus?: number;
 };
 
+type AccountOption = { id: string; name: string; account_name?: string };
+
+const selectClass =
+  "h-10 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm";
+
 export function PaymentsPage() {
   const [search] = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -42,6 +47,8 @@ export function PaymentsPage() {
   const [receiveAmount, setReceiveAmount] = useState(search.get("receive") ? search.get("amount") || "" : "");
   const [payAmount, setPayAmount] = useState(search.get("pay") ? search.get("amount") || "" : "");
   const [mode, setMode] = useState("");
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
+  const [contra, setContra] = useState({ from_account: "", to_account: "", amount: "", reference_no: "", remarks: "" });
 
   const load = async () => {
     setLoading(true);
@@ -61,6 +68,9 @@ export function PaymentsPage() {
 
   useEffect(() => {
     void load();
+    void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, { page: 1, page_size: 100 })
+      .then((env) => setAccounts(Array.isArray(env.data) ? env.data : []))
+      .catch(() => undefined);
   }, []);
 
   const onSubmit = async (name: string) => {
@@ -171,6 +181,42 @@ export function PaymentsPage() {
     }
   };
 
+  const onContra = async () => {
+    if (!contra.from_account || !contra.to_account) {
+      toast.error("From and To accounts are required");
+      return;
+    }
+    if (contra.from_account === contra.to_account) {
+      toast.error("From and To accounts cannot be the same");
+      return;
+    }
+    if (!contra.amount || Number(contra.amount) <= 0) {
+      toast.error("Amount must be greater than zero");
+      return;
+    }
+    setBusy(true);
+    try {
+      await enqueueCreate({
+        entityType: "payment_contra",
+        method: ZatGoApi.accounting.paymentsCreateContra,
+        args: {
+          from_account: contra.from_account,
+          to_account: contra.to_account,
+          amount: Number(contra.amount),
+          reference_no: contra.reference_no || undefined,
+          remarks: contra.remarks || undefined,
+        },
+      });
+      toast.success("Contra entry queued — syncing");
+      setContra({ from_account: "", to_account: "", amount: "", reference_no: "", remarks: "" });
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Contra failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading payments…" />;
   if (error) return <ErrorState title="Payments unavailable" description={error} onRetry={() => void load()} />;
 
@@ -190,6 +236,7 @@ export function PaymentsPage() {
         <TabsList>
           <TabsTrigger value="receive">Receive payment</TabsTrigger>
           <TabsTrigger value="pay">Pay bill</TabsTrigger>
+          <TabsTrigger value="contra">Contra (transfer)</TabsTrigger>
         </TabsList>
         <TabsContent value="receive" className="space-y-3 pt-3">
           <div className="grid max-w-xl gap-3">
@@ -227,6 +274,62 @@ export function PaymentsPage() {
             </div>
             <Button disabled={busy} onClick={() => void onPay()}>
               Create pay payment
+            </Button>
+          </div>
+        </TabsContent>
+        <TabsContent value="contra" className="space-y-3 pt-3">
+          <div className="grid max-w-xl gap-3">
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              Move funds between your own cash/bank accounts — e.g. depositing cash into a bank account.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="cfrom">From account</Label>
+                <select
+                  id="cfrom"
+                  className={selectClass}
+                  value={contra.from_account}
+                  onChange={(e) => setContra((c) => ({ ...c, from_account: e.target.value }))}
+                >
+                  <option value="">Select…</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.account_name || a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cto">To account</Label>
+                <select
+                  id="cto"
+                  className={selectClass}
+                  value={contra.to_account}
+                  onChange={(e) => setContra((c) => ({ ...c, to_account: e.target.value }))}
+                >
+                  <option value="">Select…</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.account_name || a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="camt">Amount</Label>
+              <Input id="camt" type="number" value={contra.amount} onChange={(e) => setContra((c) => ({ ...c, amount: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="cref">Reference (optional)</Label>
+              <Input id="cref" value={contra.reference_no} onChange={(e) => setContra((c) => ({ ...c, reference_no: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="crem">Remarks (optional)</Label>
+              <Input id="crem" value={contra.remarks} onChange={(e) => setContra((c) => ({ ...c, remarks: e.target.value }))} />
+            </div>
+            <Button disabled={busy} onClick={() => void onContra()}>
+              Create contra entry
             </Button>
           </div>
         </TabsContent>
