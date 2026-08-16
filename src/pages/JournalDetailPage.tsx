@@ -13,7 +13,18 @@ type Journal = {
   status?: string;
   date?: string;
   docstatus?: number;
-  accounts?: { account: string; debit: number; credit: number }[];
+  company?: string;
+  user_remark?: string;
+  reference_no?: string;
+  reference_date?: string;
+  accounts?: {
+    account: string;
+    debit: number;
+    credit: number;
+    cost_center?: string;
+    party_type?: string;
+    party?: string;
+  }[];
 };
 
 export function JournalDetailPage() {
@@ -95,11 +106,31 @@ export function JournalDetailPage() {
           </div>
         }
       />
+
+      {row.user_remark || row.reference_no ? (
+        <dl className="grid gap-3 sm:grid-cols-3">
+          {[
+            ["Note", row.user_remark],
+            ["Reference", row.reference_no],
+            ["Reference date", row.reference_date],
+          ]
+            .filter(([, value]) => value)
+            .map(([label, value]) => (
+              <div key={String(label)} className="rounded-[var(--radius-lg)] border border-[var(--color-border)] px-4 py-3">
+                <dt className="text-xs text-[var(--color-muted-foreground)]">{label}</dt>
+                <dd className="font-medium">{value}</dd>
+              </div>
+            ))}
+        </dl>
+      ) : null}
+
       <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)]">
         <table className="w-full text-sm">
           <thead className="bg-[var(--color-muted)] text-left">
             <tr>
               <th className="px-4 py-2">Account</th>
+              <th className="px-4 py-2">Party</th>
+              <th className="px-4 py-2">Cost center</th>
               <th className="px-4 py-2">Debit</th>
               <th className="px-4 py-2">Credit</th>
             </tr>
@@ -108,6 +139,10 @@ export function JournalDetailPage() {
             {(row.accounts || []).map((a, i) => (
               <tr key={`${a.account}-${i}`} className="border-t border-[var(--color-border)]">
                 <td className="px-4 py-2">{a.account}</td>
+                <td className="px-4 py-2 text-[var(--color-muted-foreground)]">
+                  {a.party ? `${a.party_type}: ${a.party}` : "—"}
+                </td>
+                <td className="px-4 py-2 text-[var(--color-muted-foreground)]">{a.cost_center || "—"}</td>
                 <td className="px-4 py-2 tabular-nums">{money(a.debit)}</td>
                 <td className="px-4 py-2 tabular-nums">{money(a.credit)}</td>
               </tr>
