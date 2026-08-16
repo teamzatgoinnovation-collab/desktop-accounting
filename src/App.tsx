@@ -14,6 +14,7 @@ import { JournalDetailPage } from "@/pages/JournalDetailPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { ProductsPage } from "@/pages/ProductsPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
+import { ItemGroupsPage } from "@/pages/ItemGroupsPage";
 import { StockPage } from "@/pages/StockPage";
 import { WarehousesPage } from "@/pages/WarehousesPage";
 import { WarehouseDetailPage } from "@/pages/WarehouseDetailPage";
@@ -67,6 +68,7 @@ function AppRoutes() {
         <Route path="products" element={<ProductsPage />} />
         <Route path="products/:name" element={<ProductDetailPage />} />
         <Route path="items" element={<Navigate to="/products" replace />} />
+        <Route path="item-groups" element={<ItemGroupsPage />} />
         <Route path="stock" element={<StockPage />} />
         <Route path="warehouses" element={<WarehousesPage />} />
         <Route path="warehouses/:name" element={<WarehouseDetailPage />} />

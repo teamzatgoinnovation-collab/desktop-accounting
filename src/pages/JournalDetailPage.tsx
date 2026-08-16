@@ -54,6 +54,20 @@ export function JournalDetailPage() {
     }
   };
 
+  const onCancel = async () => {
+    if (!window.confirm(`Cancel journal ${row?.name}? This reverses its GL impact.`)) return;
+    setBusy(true);
+    try {
+      await callZatGoApi(ZatGoApi.accounting.journalsCancel, { name });
+      toast.success("Journal cancelled");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading journal…" />;
   if (error) return <ErrorState title="Journal unavailable" description={error} onRetry={() => void load()} />;
   if (!row) return <ErrorState title="Not found" description="Journal not found" />;
@@ -71,6 +85,11 @@ export function JournalDetailPage() {
             {row.docstatus === 0 ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
                 Submit
+              </Button>
+            ) : null}
+            {row.docstatus === 1 ? (
+              <Button variant="outline" disabled={busy} onClick={() => void onCancel()}>
+                Cancel journal
               </Button>
             ) : null}
           </div>

@@ -73,6 +73,17 @@ export function PaymentsPage() {
     }
   };
 
+  const onCancel = async (name: string) => {
+    if (!window.confirm(`Cancel payment ${name}? This reverses its GL impact.`)) return;
+    try {
+      await callZatGoApi(ZatGoApi.accounting.paymentsCancel, { name });
+      toast.success("Payment cancelled");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    }
+  };
+
   const columns = useMemo<ColumnDef<Payment>[]>(
     () => [
       { header: "Payment", accessorKey: "name" },
@@ -95,6 +106,10 @@ export function PaymentsPage() {
           row.original.docstatus === 0 ? (
             <Button size="sm" variant="outline" onClick={() => void onSubmit(row.original.name)}>
               Submit
+            </Button>
+          ) : row.original.docstatus === 1 ? (
+            <Button size="sm" variant="outline" onClick={() => void onCancel(row.original.name)}>
+              Cancel
             </Button>
           ) : null,
       },

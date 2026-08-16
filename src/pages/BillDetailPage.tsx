@@ -58,6 +58,20 @@ export function BillDetailPage() {
     }
   };
 
+  const onCancel = async () => {
+    if (!window.confirm(`Cancel bill ${row?.name}? This reverses its GL and stock impact.`)) return;
+    setBusy(true);
+    try {
+      await callZatGoApi(ZatGoApi.accounting.purchaseInvoicesCancel, { name });
+      toast.success("Bill cancelled");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading bill…" />;
   if (error) return <ErrorState title="Bill unavailable" description={error} onRetry={() => void load()} />;
   if (!row) return <ErrorState title="Not found" description="Bill not found" />;
@@ -91,6 +105,11 @@ export function BillDetailPage() {
             {row.docstatus === 1 && !row.is_return ? (
               <Button variant="outline" onClick={() => navigate(`/bills/${encodeURIComponent(row.name)}/return`)}>
                 Create return
+              </Button>
+            ) : null}
+            {row.docstatus === 1 ? (
+              <Button variant="outline" disabled={busy} onClick={() => void onCancel()}>
+                Cancel bill
               </Button>
             ) : null}
           </div>

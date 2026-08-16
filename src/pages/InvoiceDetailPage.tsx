@@ -91,6 +91,20 @@ export function InvoiceDetailPage() {
     }
   };
 
+  const onCancel = async () => {
+    if (!window.confirm(`Cancel invoice ${invoice?.name}? This reverses its GL and stock impact.`)) return;
+    setBusy(true);
+    try {
+      await callZatGoApi(ZatGoApi.accounting.invoicesCancel, { name });
+      toast.success("Invoice cancelled");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading invoice…" />;
   if (error) return <ErrorState title="Invoice unavailable" description={error} onRetry={() => void load()} />;
   if (!invoice) return <ErrorState title="Not found" description="Invoice not found" />;
@@ -124,6 +138,11 @@ export function InvoiceDetailPage() {
             {invoice.docstatus === 1 && !invoice.is_return ? (
               <Button variant="outline" onClick={() => navigate(`/invoices/${encodeURIComponent(invoice.name)}/return`)}>
                 Create return
+              </Button>
+            ) : null}
+            {invoice.docstatus === 1 ? (
+              <Button variant="outline" disabled={busy} onClick={() => void onCancel()}>
+                Cancel invoice
               </Button>
             ) : null}
           </div>
@@ -174,7 +193,7 @@ export function InvoiceDetailPage() {
         </div>
 
         <section className="flex flex-col items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4 print:border-0">
-          <h2 className="text-sm font-medium">ZATCA Phase 2 QR</h2>
+          <h2 className="text-sm font-medium">ZATCA QR (Phase 1)</h2>
           {qrValue ? (
             <>
               <div className="rounded bg-white p-3">
