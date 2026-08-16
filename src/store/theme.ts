@@ -2,4 +2,4 @@ import { createThemeStore } from "@zatgo/ui";
 
 export type { ThemeMode } from "@zatgo/ui";
 
-export const useThemeStore = createThemeStore("zatgo-accounting-theme");
+export const useThemeStore = createThemeStore("zatgo-accounting-theme", "light");
