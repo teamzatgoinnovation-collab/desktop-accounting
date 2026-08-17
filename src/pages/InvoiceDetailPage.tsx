@@ -179,7 +179,7 @@ export function InvoiceDetailPage() {
             {(invoice.outstanding || 0) > 0 && invoice.docstatus === 1 ? (
               <Button
                 onClick={() =>
-                  navigate(`/payments?receive=${encodeURIComponent(invoice.name)}&amount=${invoice.outstanding}`)
+                  navigate(`/receipt?invoice=${encodeURIComponent(invoice.name)}&amount=${invoice.outstanding}`)
                 }
               >
                 Receive payment

@@ -9,7 +9,9 @@ import { NewInvoicePage } from "@/pages/NewInvoicePage";
 import { InvoiceDetailPage } from "@/pages/InvoiceDetailPage";
 import { NewSalesReturnPage } from "@/pages/NewSalesReturnPage";
 import { NewPurchaseReturnPage } from "@/pages/NewPurchaseReturnPage";
-import { PaymentsPage } from "@/pages/PaymentsPage";
+import { ReceiptPage } from "@/pages/ReceiptPage";
+import { PaymentPage } from "@/pages/PaymentPage";
+import { ContraPage } from "@/pages/ContraPage";
 import { JournalsPage } from "@/pages/JournalsPage";
 import { JournalDetailPage } from "@/pages/JournalDetailPage";
 import { ReportsPage } from "@/pages/ReportsPage";
@@ -67,7 +69,9 @@ function AppRoutes() {
         <Route path="bills/new" element={<NewBillPage />} />
         <Route path="bills/:name" element={<BillDetailPage />} />
         <Route path="bills/:name/return" element={<NewPurchaseReturnPage />} />
-        <Route path="payments" element={<PaymentsPage />} />
+        <Route path="receipt" element={<ReceiptPage />} />
+        <Route path="payment" element={<PaymentPage />} />
+        <Route path="contra" element={<ContraPage />} />
         <Route path="journals" element={<JournalsPage />} />
         <Route path="journals/:name" element={<JournalDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />

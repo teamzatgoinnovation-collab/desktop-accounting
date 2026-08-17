@@ -38,21 +38,26 @@ import { logoutFromErpnext } from "@/lib/client";
 
 const nav: AppShellNavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { href: "/chart-of-accounts", label: "Chart of Accounts", icon: GitBranch, section: "Accounting" },
-  { href: "/account-ledger", label: "Account Ledger", icon: ScrollText, section: "Accounting" },
-  { href: "/customers", label: "Customers", icon: Users, section: "Accounting" },
-  { href: "/invoices", label: "Sales", icon: FileText, section: "Accounting" },
-  { href: "/suppliers", label: "Suppliers", icon: Truck, section: "Accounting" },
-  { href: "/bills", label: "Purchase", icon: Receipt, section: "Accounting" },
-  { href: "/payments?tab=receive", label: "Receipt", icon: Wallet, section: "Accounting" },
-  { href: "/payments?tab=pay", label: "Payment", icon: Banknote, section: "Accounting" },
-  { href: "/payments?tab=contra", label: "Contra", icon: ArrowLeftRight, section: "Accounting" },
-  { href: "/journals", label: "Journal", icon: BookOpen, section: "Accounting" },
-  { href: "/reports", label: "Reports", icon: CreditCard, section: "Accounting" },
+
+  { href: "/chart-of-accounts", label: "Chart of Accounts", icon: GitBranch, section: "Masters" },
+  { href: "/customers", label: "Customers", icon: Users, section: "Masters" },
+  { href: "/suppliers", label: "Suppliers", icon: Truck, section: "Masters" },
+
+  { href: "/invoices", label: "Sales", icon: FileText, section: "Transactions" },
+  { href: "/bills", label: "Purchase", icon: Receipt, section: "Transactions" },
+  { href: "/receipt", label: "Receipt", icon: Wallet, section: "Transactions" },
+  { href: "/payment", label: "Payment", icon: Banknote, section: "Transactions" },
+  { href: "/contra", label: "Contra", icon: ArrowLeftRight, section: "Transactions" },
+  { href: "/journals", label: "Journal", icon: BookOpen, section: "Transactions" },
+
+  { href: "/account-ledger", label: "Account Ledger", icon: ScrollText, section: "Ledgers & Reports" },
+  { href: "/reports", label: "Reports", icon: CreditCard, section: "Ledgers & Reports" },
+
   { href: "/products", label: "Products", icon: Package, section: "Inventory" },
   { href: "/item-groups", label: "Item Groups", icon: Tags, section: "Inventory" },
   { href: "/stock", label: "Stock", icon: Layers, section: "Inventory" },
   { href: "/warehouses", label: "Warehouses", icon: Building2, section: "Inventory" },
+
   { href: "/sync", label: "Sync Center", icon: RotateCcw },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/connection", label: "Connection", icon: KeyRound },

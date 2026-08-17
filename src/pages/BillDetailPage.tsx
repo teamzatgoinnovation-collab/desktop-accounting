@@ -147,7 +147,7 @@ export function BillDetailPage() {
             {(row.outstanding || 0) > 0 && !isDraft ? (
               <Button
                 onClick={() =>
-                  navigate(`/payments?pay=${encodeURIComponent(row.name)}&amount=${row.outstanding}`)
+                  navigate(`/payment?invoice=${encodeURIComponent(row.name)}&amount=${row.outstanding}`)
                 }
               >
                 Pay bill
