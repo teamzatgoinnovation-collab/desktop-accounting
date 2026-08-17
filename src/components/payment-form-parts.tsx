@@ -126,6 +126,59 @@ export function InvoiceAllocationEditor({
   );
 }
 
+export type SplitLine = { account: string; amount: string };
+export const emptySplitLine = (): SplitLine => ({ account: "", amount: "" });
+
+/** Split a receipt/payment across several cash/bank accounts (e.g. part cash, part card). */
+export function SplitAccountLinesEditor({
+  accounts,
+  lines,
+  onChange,
+}: {
+  accounts: AccountOption[];
+  lines: SplitLine[];
+  onChange: (lines: SplitLine[]) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] p-3">
+      <Label>Split across accounts</Label>
+      {lines.map((line, idx) => (
+        <div key={idx} className="grid gap-2 sm:grid-cols-[1fr_140px_auto]">
+          <select
+            className={selectClass}
+            value={line.account}
+            onChange={(e) => onChange(lines.map((l, i) => (i === idx ? { ...l, account: e.target.value } : l)))}
+          >
+            <option value="">Account…</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.account_name || a.name}
+              </option>
+            ))}
+          </select>
+          <Input
+            type="number"
+            placeholder="Amount"
+            value={line.amount}
+            onChange={(e) => onChange(lines.map((l, i) => (i === idx ? { ...l, amount: e.target.value } : l)))}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => onChange(lines.length > 1 ? lines.filter((_, i) => i !== idx) : [emptySplitLine()])}
+          >
+            Remove
+          </Button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" type="button" onClick={() => onChange([...lines, emptySplitLine()])}>
+        Add account
+      </Button>
+    </div>
+  );
+}
+
 /**
  * Self-contained list + submit/cancel section, filtered to one payment_type
  * (Receive / Pay / Internal Transfer) — each dedicated page owns its own
