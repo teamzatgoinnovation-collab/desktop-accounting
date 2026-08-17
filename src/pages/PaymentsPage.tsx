@@ -387,7 +387,7 @@ export function PaymentsPage() {
         }
       />
 
-      <Tabs defaultValue={search.get("pay") ? "pay" : "receive"}>
+      <Tabs defaultValue={search.get("tab") || (search.get("pay") ? "pay" : "receive")}>
         <TabsList>
           <TabsTrigger value="receive">Receive payment</TabsTrigger>
           <TabsTrigger value="pay">Pay bill</TabsTrigger>

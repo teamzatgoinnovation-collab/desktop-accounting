@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, DataTable, ErrorState, Input, Label, LoadingState, PageHeader } from "@zatgo/ui";
@@ -29,13 +29,19 @@ type Line = { account: string; debit: number; credit: number; cost_center: strin
 
 const emptyLine = (): Line => ({ account: "", debit: 0, credit: 0, cost_center: "", party_type: "", party: "" });
 
+type DuplicateState = { lines?: Line[] };
+
 export function JournalsPage() {
+  const location = useLocation();
+  const duplicateFrom = (location.state as DuplicateState | null) || null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Journal[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [lines, setLines] = useState<Line[]>([emptyLine(), emptyLine()]);
+  const [lines, setLines] = useState<Line[]>(
+    duplicateFrom?.lines?.length ? duplicateFrom.lines : [emptyLine(), emptyLine()],
+  );
   const [remark, setRemark] = useState("");
   const [referenceNo, setReferenceNo] = useState("");
   const [referenceDate, setReferenceDate] = useState("");

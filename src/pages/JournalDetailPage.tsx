@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ type Journal = {
 export function JournalDetailPage() {
   const { name: rawName } = useParams<{ name: string }>();
   const name = decodeURIComponent(rawName || "");
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +82,20 @@ export function JournalDetailPage() {
     }
   };
 
+  const onAmend = async () => {
+    setBusy(true);
+    try {
+      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.journalsAmend, { name });
+      const amended = env.data?.name;
+      toast.success(`Amended as ${amended}`);
+      if (amended) navigate(`/journals/${encodeURIComponent(amended)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Amend failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
@@ -112,6 +127,25 @@ export function JournalDetailPage() {
             <Button variant="outline" disabled={downloadingPdf} onClick={() => void onDownloadPdf()}>
               Download PDF
             </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                navigate("/journals", {
+                  state: {
+                    lines: (row.accounts || []).map((a) => ({
+                      account: a.account,
+                      debit: a.debit,
+                      credit: a.credit,
+                      cost_center: a.cost_center || "",
+                      party_type: a.party_type || "",
+                      party: a.party || "",
+                    })),
+                  },
+                })
+              }
+            >
+              Duplicate
+            </Button>
             {row.docstatus === 0 ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
                 Submit
@@ -120,6 +154,11 @@ export function JournalDetailPage() {
             {row.docstatus === 1 ? (
               <Button variant="outline" disabled={busy} onClick={() => void onCancel()}>
                 Cancel journal
+              </Button>
+            ) : null}
+            {row.docstatus === 2 ? (
+              <Button disabled={busy} onClick={() => void onAmend()}>
+                Amend
               </Button>
             ) : null}
           </div>

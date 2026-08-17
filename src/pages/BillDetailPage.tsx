@@ -74,6 +74,20 @@ export function BillDetailPage() {
     }
   };
 
+  const onAmend = async () => {
+    setBusy(true);
+    try {
+      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.purchaseInvoicesAmend, { name });
+      const amended = env.data?.name;
+      toast.success(`Amended as ${amended}`);
+      if (amended) navigate(`/bills/${encodeURIComponent(amended)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Amend failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
@@ -108,6 +122,23 @@ export function BillDetailPage() {
             <Button variant="outline" disabled={downloadingPdf} onClick={() => void onDownloadPdf()}>
               Download PDF
             </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                navigate("/bills/new", {
+                  state: {
+                    supplier: row.supplier,
+                    lines: (row.items || []).map((l) => ({
+                      item_code: l.item_code || "",
+                      qty: l.qty || 1,
+                      rate: l.rate || 0,
+                    })),
+                  },
+                })
+              }
+            >
+              Duplicate
+            </Button>
             {isDraft ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
                 Submit
@@ -130,6 +161,11 @@ export function BillDetailPage() {
             {row.docstatus === 1 ? (
               <Button variant="outline" disabled={busy} onClick={() => void onCancel()}>
                 Cancel bill
+              </Button>
+            ) : null}
+            {row.docstatus === 2 ? (
+              <Button disabled={busy} onClick={() => void onAmend()}>
+                Amend
               </Button>
             ) : null}
           </div>
