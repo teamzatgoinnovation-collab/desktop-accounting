@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ZatGoApi } from "@zatgo/erpnext";
 import {
   Button,
@@ -114,6 +115,7 @@ function AccountRow({
 }
 
 export function ChartOfAccountsPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -332,9 +334,18 @@ export function ChartOfAccountsPage() {
                   </p>
                 </div>
               ) : null}
-              <Button variant="outline" size="sm" onClick={() => void onToggleDisabled(selected)}>
-                {selected.disabled ? "Enable account" : "Disable account"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/account-ledger?account=${encodeURIComponent(selected.id)}`)}
+                >
+                  View ledger
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => void onToggleDisabled(selected)}>
+                  {selected.disabled ? "Enable account" : "Disable account"}
+                </Button>
+              </div>
             </>
           )}
         </div>

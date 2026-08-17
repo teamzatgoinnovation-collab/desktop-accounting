@@ -20,6 +20,7 @@ import {
   Package,
   Receipt,
   RotateCcw,
+  ScrollText,
   Settings,
   Sun,
   Tags,
@@ -36,6 +37,7 @@ import { logoutFromErpnext } from "@/lib/client";
 const nav: AppShellNavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { href: "/chart-of-accounts", label: "Chart of Accounts", icon: GitBranch, section: "Accounting" },
+  { href: "/account-ledger", label: "Account Ledger", icon: ScrollText, section: "Accounting" },
   { href: "/customers", label: "Customers", icon: Users, section: "Accounting" },
   { href: "/invoices", label: "Invoices", icon: FileText, section: "Accounting" },
   { href: "/suppliers", label: "Suppliers", icon: Truck, section: "Accounting" },
