@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, Input, Label, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
@@ -11,14 +11,20 @@ type Item = { id: string; name: string; item_code?: string; rate?: number };
 type Line = { item_code: string; qty: number; rate: number };
 type CostCenter = { id: string; name: string; cost_center_name?: string };
 
+type DuplicateState = { supplier?: string; lines?: Line[] };
+
 export function NewBillPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [search] = useSearchParams();
+  const duplicateFrom = (location.state as DuplicateState | null) || null;
   const [suppliers, setSuppliers] = useState<Party[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [supplier, setSupplier] = useState(search.get("supplier") || "");
-  const [lines, setLines] = useState<Line[]>([{ item_code: "", qty: 1, rate: 0 }]);
+  const [supplier, setSupplier] = useState(duplicateFrom?.supplier || search.get("supplier") || "");
+  const [lines, setLines] = useState<Line[]>(
+    duplicateFrom?.lines?.length ? duplicateFrom.lines : [{ item_code: "", qty: 1, rate: 0 }],
+  );
   const [costCenter, setCostCenter] = useState("");
   const [project, setProject] = useState("");
   const [showMore, setShowMore] = useState(false);
