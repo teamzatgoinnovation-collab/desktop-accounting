@@ -4,6 +4,7 @@ import { Button, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrig
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
+import { downloadCsv } from "@/lib/download";
 
 type OutstandingRow = {
   name: string;
@@ -175,6 +176,7 @@ export function ReportsPage() {
           <ReportTable
             rows={ar.map((r) => [r.name, r.party, r.due_date || "—", money(r.outstanding)])}
             headers={["Invoice", "Customer", "Due", "Outstanding"]}
+            filename="receivables.csv"
           />
         </TabsContent>
 
@@ -185,6 +187,7 @@ export function ReportsPage() {
           <ReportTable
             rows={ap.map((r) => [r.name, r.party, r.due_date || "—", money(r.outstanding)])}
             headers={["Bill", "Supplier", "Due", "Outstanding"]}
+            filename="payables.csv"
           />
         </TabsContent>
 
@@ -220,6 +223,7 @@ export function ReportsPage() {
               money(r.credit),
             ])}
             headers={["Date", "Voucher type", "Account", "Voucher", "Debit", "Credit"]}
+            filename="general-ledger.csv"
           />
         </TabsContent>
 
@@ -240,6 +244,7 @@ export function ReportsPage() {
                   money(r.closing_credit),
                 ])}
                 headers={["Account", "Opening Dr", "Opening Cr", "Debit", "Credit", "Closing Dr", "Closing Cr"]}
+                filename="trial-balance.csv"
               />
               <p className="text-sm text-[var(--color-muted-foreground)] tabular-nums">
                 Totals — Debit {money(tb.totals.total_debit)} · Credit {money(tb.totals.total_credit)} · Closing Dr{" "}
@@ -260,6 +265,7 @@ export function ReportsPage() {
                 <ReportTable
                   rows={(pl.income || []).map((r) => [r.account_name || r.account, money(r.amount)])}
                   headers={["Account", "Amount"]}
+                  filename="profit-and-loss-income.csv"
                 />
               </div>
               <div>
@@ -267,6 +273,7 @@ export function ReportsPage() {
                 <ReportTable
                   rows={(pl.expense || []).map((r) => [r.account_name || r.account, money(r.amount)])}
                   headers={["Account", "Amount"]}
+                  filename="profit-and-loss-expense.csv"
                 />
               </div>
               <p className="text-lg font-semibold lg:col-span-2">
@@ -280,39 +287,61 @@ export function ReportsPage() {
   );
 }
 
-function ReportTable({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
+function ReportTable({
+  headers,
+  rows,
+  filename,
+}: {
+  headers: string[];
+  rows: (string | number)[][];
+  filename?: string;
+}) {
   return (
-    <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)]">
-      <table className="w-full text-sm">
-        <thead className="bg-[var(--color-muted)] text-left">
-          <tr>
-            {headers.map((h) => (
-              <th key={h} className="px-4 py-2">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
+    <div className="space-y-2">
+      {filename ? (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={rows.length === 0}
+            onClick={() => downloadCsv(filename, headers, rows)}
+          >
+            Export CSV
+          </Button>
+        </div>
+      ) : null}
+      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)]">
+        <table className="w-full text-sm">
+          <thead className="bg-[var(--color-muted)] text-left">
             <tr>
-              <td className="px-4 py-6 text-[var(--color-muted-foreground)]" colSpan={headers.length}>
-                Run the report to see rows.
-              </td>
+              {headers.map((h) => (
+                <th key={h} className="px-4 py-2">
+                  {h}
+                </th>
+              ))}
             </tr>
-          ) : (
-            rows.map((row, i) => (
-              <tr key={i} className="border-t border-[var(--color-border)]">
-                {row.map((cell, j) => (
-                  <td key={j} className="px-4 py-2">
-                    {cell}
-                  </td>
-                ))}
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-[var(--color-muted-foreground)]" colSpan={headers.length}>
+                  Run the report to see rows.
+                </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              rows.map((row, i) => (
+                <tr key={i} className="border-t border-[var(--color-border)]">
+                  {row.map((cell, j) => (
+                    <td key={j} className="px-4 py-2">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

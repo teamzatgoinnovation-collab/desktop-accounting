@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
 import { ListToolbar } from "@/components/ListToolbar";
+import { downloadCsv } from "@/lib/download";
 
 type AccountOption = { id: string; name: string; account_name?: string; is_group?: number };
 
@@ -169,7 +170,31 @@ export function AccountLedgerPage() {
               <p className="text-lg font-semibold tabular-nums">{money(meta.closing_balance)}</p>
             </div>
           </div>
-          <ListToolbar search={rowSearch} onSearchChange={setRowSearch} searchPlaceholder="Search voucher or party…" />
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <ListToolbar search={rowSearch} onSearchChange={setRowSearch} searchPlaceholder="Search voucher or party…" />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={filteredRows.length === 0}
+              onClick={() =>
+                downloadCsv(
+                  `account-ledger-${account}.csv`,
+                  ["Date", "Voucher type", "Voucher no", "Party", "Debit", "Credit", "Balance"],
+                  filteredRows.map((r) => [
+                    r.date || "",
+                    r.voucher_type || "",
+                    r.voucher_no || "",
+                    r.party || "",
+                    r.debit,
+                    r.credit,
+                    r.balance,
+                  ]),
+                )
+              }
+            >
+              Export CSV
+            </Button>
+          </div>
           <DataTable data={filteredRows} columns={columns} emptyMessage="No transactions in range." pageSize={20} />
         </>
       ) : (

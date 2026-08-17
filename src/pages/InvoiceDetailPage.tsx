@@ -6,6 +6,7 @@ import { Button, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
+import { downloadPdfBase64 } from "@/lib/download";
 
 type InvoiceItem = {
   item_code?: string;
@@ -52,6 +53,7 @@ export function InvoiceDetailPage() {
   const [busy, setBusy] = useState(false);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [zatca, setZatca] = useState<ZatcaPayload | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -105,6 +107,20 @@ export function InvoiceDetailPage() {
     }
   };
 
+  const onDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const env = await callZatGoApi<{ pdf_base64: string; filename: string }>(ZatGoApi.accounting.invoicesGetPdf, {
+        name,
+      });
+      if (env.data?.pdf_base64) downloadPdfBase64(env.data.pdf_base64, env.data.filename || `${name}.pdf`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "PDF download failed");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading invoice…" />;
   if (error) return <ErrorState title="Invoice unavailable" description={error} onRetry={() => void load()} />;
   if (!invoice) return <ErrorState title="Not found" description="Invoice not found" />;
@@ -120,6 +136,9 @@ export function InvoiceDetailPage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
               <Link to="/invoices">Back</Link>
+            </Button>
+            <Button variant="outline" disabled={downloadingPdf} onClick={() => void onDownloadPdf()}>
+              Download PDF
             </Button>
             {invoice.docstatus === 0 ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
