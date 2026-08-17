@@ -8,7 +8,17 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "dist:win": "pnpm build && electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "online.zatgo.accounting-desktop",
+    "productName": "ZatGo Accounting",
+    "files": ["dist/**", "dist-electron/**"],
+    "directories": { "output": "release" },
+    "win": {
+      "target": ["portable"]
+    }
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -39,6 +49,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@zatgo/config": "workspace:*",
     "electron": "^35.0.0",
+    "electron-builder": "^26.15.3",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.0",
     "vite": "^6.0.0",

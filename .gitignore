@@ -4,6 +4,7 @@ dist/
 dist-electron/
 .dart_tool/
 build/
+release/
 .env
 .env.*
 !.env.example
