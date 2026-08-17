@@ -39,7 +39,6 @@ export async function loginWithPassword(input: {
     baseUrl: result.baseUrl,
     error: null,
   });
-  useSessionStore.getState().setAllowMockWithoutLogin(false);
 
   return result;
 }
@@ -49,7 +48,6 @@ export async function logoutFromErpnext(): Promise<void> {
     await window.zatgoDesktop.erpnextLogout();
   }
   useSessionStore.getState().clearSession();
-  useSessionStore.getState().setAllowMockWithoutLogin(false);
 }
 
 export async function hydrateErpnextSession(): Promise<void> {

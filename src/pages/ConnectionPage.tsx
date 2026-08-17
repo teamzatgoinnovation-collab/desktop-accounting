@@ -50,7 +50,7 @@ export function ConnectionPage() {
           </div>
         ) : (
           <p className="text-sm text-[var(--color-muted-foreground)]">
-            Not signed in. Feature pages use mock data until you connect.
+            Not signed in. Sign in to load real data from ERPNext.
           </p>
         )}
 

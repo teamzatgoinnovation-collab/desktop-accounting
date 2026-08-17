@@ -11,7 +11,6 @@ type SessionState = {
   user: string | null;
   fullName: string | null;
   lastError: string | null;
-  allowMockWithoutLogin: boolean;
   setSession: (input: {
     connected: boolean;
     user?: string | null;
@@ -20,7 +19,6 @@ type SessionState = {
     baseUrl?: string;
   }) => void;
   clearSession: () => void;
-  setAllowMockWithoutLogin: (value: boolean) => void;
 };
 
 const defaultBaseUrl =
@@ -35,7 +33,6 @@ export const useSessionStore = create<SessionState>()(
       user: null,
       fullName: null,
       lastError: null,
-          allowMockWithoutLogin: false,
       setSession: ({ connected, user = null, fullName = null, error = null, baseUrl }) =>
         set((state) => ({
           connected,
@@ -53,17 +50,15 @@ export const useSessionStore = create<SessionState>()(
           fullName: null,
           lastError: null,
           connection: state.connection,
-          allowMockWithoutLogin: false,
         })),
-      setAllowMockWithoutLogin: (value) => set({ allowMockWithoutLogin: value }),
     }),
     {
       name: "zatgo-accounting-desktop-session",
       // baseUrl is intentionally NOT persisted — it always comes fresh from
       // VITE_FRAPPE_BASE_URL (.env) on every launch, not a cached override.
-      partialize: (s) => ({
-        allowMockWithoutLogin: s.allowMockWithoutLogin,
-      }),
+      // Nothing else in session state should survive a restart either — a
+      // fresh launch always re-hydrates from a live ERPNext session check.
+      partialize: () => ({}),
     },
   ),
 );
