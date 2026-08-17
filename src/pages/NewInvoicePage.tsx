@@ -9,20 +9,25 @@ import { enqueueCreate, loadCachedList } from "@/lib/offline";
 type Party = { id: string; name: string };
 type Item = { id: string; name: string; item_code?: string; rate?: number };
 type Line = { item_code: string; qty: number; rate: number };
+type CostCenter = { id: string; name: string; cost_center_name?: string };
 
 export function NewInvoicePage() {
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const [customers, setCustomers] = useState<Party[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [customer, setCustomer] = useState(search.get("customer") || "");
   const [lines, setLines] = useState<Line[]>([{ item_code: "", qty: 1, rate: 0 }]);
+  const [costCenter, setCostCenter] = useState("");
+  const [project, setProject] = useState("");
+  const [showMore, setShowMore] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void (async () => {
       try {
-        const [c, i] = await Promise.all([
+        const [c, i, cc] = await Promise.all([
           loadCachedList<Party>("customers", async () => {
             const env = await callZatGoApi<Party[]>(ZatGoApi.accounting.customersList, { page: 1, page_size: 100 });
             return Array.isArray(env.data) ? env.data : [];
@@ -34,9 +39,17 @@ export function NewInvoicePage() {
             });
             return Array.isArray(env.data) ? env.data : [];
           }),
+          loadCachedList<CostCenter>("cost-centers", async () => {
+            const env = await callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, {
+              page: 1,
+              page_size: 100,
+            });
+            return Array.isArray(env.data) ? env.data : [];
+          }),
         ]);
         setCustomers(c.data);
         setItems(i.data);
+        setCostCenters(cc.data);
         if (c.stale || i.stale) toast.info("Showing last-known data — offline");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to load form data");
@@ -59,7 +72,12 @@ export function NewInvoicePage() {
       await enqueueCreate({
         entityType: "sales_invoice",
         method: ZatGoApi.accounting.invoicesCreate,
-        args: { customer, items: valid },
+        args: {
+          customer,
+          items: valid,
+          cost_center: costCenter || undefined,
+          project: project || undefined,
+        },
       });
       toast.success("Invoice queued — syncing");
       navigate("/sync", { replace: true });
@@ -149,6 +167,40 @@ export function NewInvoicePage() {
         >
           Add line
         </Button>
+      </div>
+
+      <div className="max-w-xl space-y-3">
+        {showMore ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="cc">Cost center (optional)</Label>
+              <select
+                id="cc"
+                className="h-10 w-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm"
+                value={costCenter}
+                onChange={(e) => setCostCenter(e.target.value)}
+              >
+                <option value="">Select…</option>
+                {costCenters.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.cost_center_name || c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="proj">Project (optional)</Label>
+              <Input id="proj" value={project} onChange={(e) => setProject(e.target.value)} />
+            </div>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className="text-sm text-[var(--color-primary)] underline-offset-2 hover:underline"
+          onClick={() => setShowMore((v) => !v)}
+        >
+          {showMore ? "Show less details" : "Show more details"}
+        </button>
       </div>
 
       <Button disabled={busy} onClick={() => void onSave()}>

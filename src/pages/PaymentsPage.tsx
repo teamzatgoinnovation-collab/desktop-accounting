@@ -35,6 +35,7 @@ type Payment = {
 type AccountOption = { id: string; name: string; account_name?: string };
 type PartyOption = { id: string; name: string; customer_name?: string; supplier_name?: string };
 type InvoiceLine = { name: string; amount: string };
+type CostCenter = { id: string; name: string; cost_center_name?: string };
 
 const emptyInvoiceLine = (): InvoiceLine => ({ name: "", amount: "" });
 
@@ -53,12 +54,40 @@ export function PaymentsPage() {
   const [payAmount, setPayAmount] = useState(search.get("pay") ? search.get("amount") || "" : "");
   const [mode, setMode] = useState("");
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
-  const [contra, setContra] = useState({ from_account: "", to_account: "", amount: "", reference_no: "", remarks: "" });
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [receiveCostCenter, setReceiveCostCenter] = useState("");
+  const [receiveProject, setReceiveProject] = useState("");
+  const [payCostCenter, setPayCostCenter] = useState("");
+  const [payProject, setPayProject] = useState("");
+  const [contra, setContra] = useState({
+    from_account: "",
+    to_account: "",
+    amount: "",
+    reference_no: "",
+    remarks: "",
+    cost_center: "",
+    project: "",
+  });
   const [customers, setCustomers] = useState<PartyOption[]>([]);
   const [suppliers, setSuppliers] = useState<PartyOption[]>([]);
-  const [advanceReceive, setAdvanceReceive] = useState({ party: "", amount: "", mode: "", reference_no: "" });
+  const [advanceReceive, setAdvanceReceive] = useState({
+    party: "",
+    amount: "",
+    mode: "",
+    reference_no: "",
+    cost_center: "",
+    project: "",
+  });
   const [advanceReceiveInvoices, setAdvanceReceiveInvoices] = useState<InvoiceLine[]>([emptyInvoiceLine()]);
-  const [advancePay, setAdvancePay] = useState({ party: "", amount: "", mode: "", reference_no: "" });
+  const [advancePay, setAdvancePay] = useState({
+    party: "",
+    amount: "",
+    mode: "",
+    reference_no: "",
+    cost_center: "",
+    project: "",
+  });
   const [advancePayInvoices, setAdvancePayInvoices] = useState<InvoiceLine[]>([emptyInvoiceLine()]);
   const [listSearch, setListSearch] = useState("");
   const [listFromDate, setListFromDate] = useState("");
@@ -84,6 +113,9 @@ export function PaymentsPage() {
     void load();
     void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, { page: 1, page_size: 100 })
       .then((env) => setAccounts(Array.isArray(env.data) ? env.data : []))
+      .catch(() => undefined);
+    void callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, { page: 1, page_size: 100 })
+      .then((env) => setCostCenters(Array.isArray(env.data) ? env.data : []))
       .catch(() => undefined);
     void callZatGoApi<PartyOption[]>(ZatGoApi.accounting.customersList, { page: 1, page_size: 200 })
       .then((env) => setCustomers(Array.isArray(env.data) ? env.data : []))
@@ -161,6 +193,8 @@ export function PaymentsPage() {
           sales_invoice: receiveInvoice.trim(),
           amount: receiveAmount ? Number(receiveAmount) : undefined,
           mode_of_payment: mode || undefined,
+          cost_center: receiveCostCenter || undefined,
+          project: receiveProject || undefined,
         },
       });
       toast.success("Payment queued — syncing");
@@ -188,6 +222,8 @@ export function PaymentsPage() {
           purchase_invoice: payInvoice.trim(),
           amount: payAmount ? Number(payAmount) : undefined,
           mode_of_payment: mode || undefined,
+          cost_center: payCostCenter || undefined,
+          project: payProject || undefined,
         },
       });
       toast.success("Payment queued — syncing");
@@ -224,10 +260,12 @@ export function PaymentsPage() {
           mode_of_payment: advanceReceive.mode || undefined,
           reference_no: advanceReceive.reference_no || undefined,
           invoices: invoices.length ? invoices : undefined,
+          cost_center: advanceReceive.cost_center || undefined,
+          project: advanceReceive.project || undefined,
         },
       });
       toast.success(invoices.length ? "Receipt queued — syncing" : "On-account receipt queued — syncing");
-      setAdvanceReceive({ party: "", amount: "", mode: "", reference_no: "" });
+      setAdvanceReceive({ party: "", amount: "", mode: "", reference_no: "", cost_center: "", project: "" });
       setAdvanceReceiveInvoices([emptyInvoiceLine()]);
       await load();
     } catch (e) {
@@ -260,10 +298,12 @@ export function PaymentsPage() {
           mode_of_payment: advancePay.mode || undefined,
           reference_no: advancePay.reference_no || undefined,
           invoices: invoices.length ? invoices : undefined,
+          cost_center: advancePay.cost_center || undefined,
+          project: advancePay.project || undefined,
         },
       });
       toast.success(invoices.length ? "Payment queued — syncing" : "On-account payment queued — syncing");
-      setAdvancePay({ party: "", amount: "", mode: "", reference_no: "" });
+      setAdvancePay({ party: "", amount: "", mode: "", reference_no: "", cost_center: "", project: "" });
       setAdvancePayInvoices([emptyInvoiceLine()]);
       await load();
     } catch (e) {
@@ -297,10 +337,20 @@ export function PaymentsPage() {
           amount: Number(contra.amount),
           reference_no: contra.reference_no || undefined,
           remarks: contra.remarks || undefined,
+          cost_center: contra.cost_center || undefined,
+          project: contra.project || undefined,
         },
       });
       toast.success("Contra entry queued — syncing");
-      setContra({ from_account: "", to_account: "", amount: "", reference_no: "", remarks: "" });
+      setContra({
+        from_account: "",
+        to_account: "",
+        amount: "",
+        reference_no: "",
+        remarks: "",
+        cost_center: "",
+        project: "",
+      });
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Contra failed");
@@ -364,6 +414,16 @@ export function PaymentsPage() {
               <Label htmlFor="mop">Mode of payment (optional)</Label>
               <Input id="mop" value={mode} onChange={(e) => setMode(e.target.value)} placeholder="Cash / Bank…" />
             </div>
+            <AdvancedPaymentFields
+              idPrefix="r"
+              show={showAdvanced}
+              onToggle={() => setShowAdvanced((v) => !v)}
+              costCenters={costCenters}
+              costCenter={receiveCostCenter}
+              onCostCenterChange={setReceiveCostCenter}
+              project={receiveProject}
+              onProjectChange={setReceiveProject}
+            />
             <Button disabled={busy} onClick={() => void onReceive()}>
               Create receive payment
             </Button>
@@ -379,6 +439,16 @@ export function PaymentsPage() {
               <Label htmlFor="pamt">Amount (optional)</Label>
               <Input id="pamt" type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
             </div>
+            <AdvancedPaymentFields
+              idPrefix="p"
+              show={showAdvanced}
+              onToggle={() => setShowAdvanced((v) => !v)}
+              costCenters={costCenters}
+              costCenter={payCostCenter}
+              onCostCenterChange={setPayCostCenter}
+              project={payProject}
+              onProjectChange={setPayProject}
+            />
             <Button disabled={busy} onClick={() => void onPay()}>
               Create pay payment
             </Button>
@@ -436,6 +506,16 @@ export function PaymentsPage() {
               label="Allocate to invoices (optional)"
               lines={advanceReceiveInvoices}
               onChange={setAdvanceReceiveInvoices}
+            />
+            <AdvancedPaymentFields
+              idPrefix="ar"
+              show={showAdvanced}
+              onToggle={() => setShowAdvanced((v) => !v)}
+              costCenters={costCenters}
+              costCenter={advanceReceive.cost_center}
+              onCostCenterChange={(v) => setAdvanceReceive((f) => ({ ...f, cost_center: v }))}
+              project={advanceReceive.project}
+              onProjectChange={(v) => setAdvanceReceive((f) => ({ ...f, project: v }))}
             />
             <Button disabled={busy} onClick={() => void onAdvanceReceive()}>
               Create receipt
@@ -495,6 +575,16 @@ export function PaymentsPage() {
               lines={advancePayInvoices}
               onChange={setAdvancePayInvoices}
             />
+            <AdvancedPaymentFields
+              idPrefix="ap"
+              show={showAdvanced}
+              onToggle={() => setShowAdvanced((v) => !v)}
+              costCenters={costCenters}
+              costCenter={advancePay.cost_center}
+              onCostCenterChange={(v) => setAdvancePay((f) => ({ ...f, cost_center: v }))}
+              project={advancePay.project}
+              onProjectChange={(v) => setAdvancePay((f) => ({ ...f, project: v }))}
+            />
             <Button disabled={busy} onClick={() => void onAdvancePay()}>
               Create payment
             </Button>
@@ -551,6 +641,16 @@ export function PaymentsPage() {
               <Label htmlFor="crem">Remarks (optional)</Label>
               <Input id="crem" value={contra.remarks} onChange={(e) => setContra((c) => ({ ...c, remarks: e.target.value }))} />
             </div>
+            <AdvancedPaymentFields
+              idPrefix="c"
+              show={showAdvanced}
+              onToggle={() => setShowAdvanced((v) => !v)}
+              costCenters={costCenters}
+              costCenter={contra.cost_center}
+              onCostCenterChange={(v) => setContra((c) => ({ ...c, cost_center: v }))}
+              project={contra.project}
+              onProjectChange={(v) => setContra((c) => ({ ...c, project: v }))}
+            />
             <Button disabled={busy} onClick={() => void onContra()}>
               Create contra entry
             </Button>
@@ -568,6 +668,62 @@ export function PaymentsPage() {
         onToDateChange={setListToDate}
       />
       <DataTable data={filteredRows} columns={columns} emptyMessage="No payments match." pageSize={15} />
+    </div>
+  );
+}
+
+function AdvancedPaymentFields({
+  idPrefix,
+  show,
+  onToggle,
+  costCenters,
+  costCenter,
+  onCostCenterChange,
+  project,
+  onProjectChange,
+}: {
+  idPrefix: string;
+  show: boolean;
+  onToggle: () => void;
+  costCenters: CostCenter[];
+  costCenter: string;
+  onCostCenterChange: (value: string) => void;
+  project: string;
+  onProjectChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {show ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor={`${idPrefix}-cc`}>Cost center (optional)</Label>
+            <select
+              id={`${idPrefix}-cc`}
+              className={selectClass}
+              value={costCenter}
+              onChange={(e) => onCostCenterChange(e.target.value)}
+            >
+              <option value="">Select…</option>
+              {costCenters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.cost_center_name || c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`${idPrefix}-proj`}>Project (optional)</Label>
+            <Input id={`${idPrefix}-proj`} value={project} onChange={(e) => onProjectChange(e.target.value)} />
+          </div>
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className="text-sm text-[var(--color-primary)] underline-offset-2 hover:underline"
+        onClick={onToggle}
+      >
+        {show ? "Show less details" : "Show more details"}
+      </button>
     </div>
   );
 }
