@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { enqueueCreate, loadCachedList } from "@/lib/offline";
+import { ListToolbar } from "@/components/ListToolbar";
 
 type Customer = {
   id: string;
@@ -36,6 +37,7 @@ export function CustomersPage() {
   const [rows, setRows] = useState<Customer[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     customer_name: "",
     email: "",
@@ -114,6 +116,16 @@ export function CustomersPage() {
     }
   };
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      `${r.name} ${r.customer_type ?? ""} ${r.territory ?? ""} ${r.email ?? ""} ${r.phone ?? ""}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [rows, search]);
+
   if (loading) return <LoadingState label="Loading customers…" />;
   if (error) return <ErrorState title="Customers unavailable" description={error} onRetry={() => void load()} />;
 
@@ -124,7 +136,8 @@ export function CustomersPage() {
         description="People and companies who buy from you."
         actions={<Button onClick={() => setOpen(true)}>Add customer</Button>}
       />
-      <DataTable data={rows} columns={columns} emptyMessage="No customers yet." />
+      <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search customers…" />
+      <DataTable data={filteredRows} columns={columns} emptyMessage="No customers match." pageSize={15} />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

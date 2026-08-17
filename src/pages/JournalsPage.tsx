@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { enqueueCreate, loadCachedList } from "@/lib/offline";
 import { money } from "@/lib/format";
+import { ListToolbar } from "@/components/ListToolbar";
 
 type Journal = {
   id: string;
@@ -40,6 +41,9 @@ export function JournalsPage() {
   const [referenceDate, setReferenceDate] = useState("");
   const [showMore, setShowMore] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [listSearch, setListSearch] = useState("");
+  const [listFromDate, setListFromDate] = useState("");
+  const [listToDate, setListToDate] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -161,6 +165,19 @@ export function JournalsPage() {
       setBusy(false);
     }
   };
+
+  const filteredRows = useMemo(() => {
+    const q = listSearch.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (q) {
+        const haystack = `${r.name} ${r.title ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (listFromDate && (!r.date || r.date < listFromDate)) return false;
+      if (listToDate && (!r.date || r.date > listToDate)) return false;
+      return true;
+    });
+  }, [rows, listSearch, listFromDate, listToDate]);
 
   if (loading) return <LoadingState label="Loading journals…" />;
 
@@ -294,7 +311,18 @@ export function JournalsPage() {
       {error ? (
         <ErrorState title="Journal list unavailable" description={error} onRetry={() => void load()} />
       ) : (
-        <DataTable data={rows} columns={columns} emptyMessage="No journals yet." />
+        <>
+          <ListToolbar
+            search={listSearch}
+            onSearchChange={setListSearch}
+            searchPlaceholder="Search journal # or title…"
+            fromDate={listFromDate}
+            onFromDateChange={setListFromDate}
+            toDate={listToDate}
+            onToDateChange={setListToDate}
+          />
+          <DataTable data={filteredRows} columns={columns} emptyMessage="No journals match." pageSize={15} />
+        </>
       )}
     </div>
   );

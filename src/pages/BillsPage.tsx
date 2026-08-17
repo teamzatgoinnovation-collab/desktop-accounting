@@ -5,6 +5,7 @@ import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, DataTable, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
+import { ListToolbar } from "@/components/ListToolbar";
 
 type Bill = {
   id: string;
@@ -20,6 +21,9 @@ export function BillsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Bill[]>([]);
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -70,6 +74,19 @@ export function BillsPage() {
     [],
   );
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (q) {
+        const haystack = `${r.name} ${r.supplier ?? ""} ${r.status ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (fromDate && (!r.date || r.date < fromDate)) return false;
+      if (toDate && (!r.date || r.date > toDate)) return false;
+      return true;
+    });
+  }, [rows, search, fromDate, toDate]);
+
   if (loading) return <LoadingState label="Loading bills…" />;
   if (error) return <ErrorState title="Bills unavailable" description={error} onRetry={() => void load()} />;
 
@@ -84,7 +101,16 @@ export function BillsPage() {
           </Button>
         }
       />
-      <DataTable data={rows} columns={columns} emptyMessage="No bills yet." />
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search bill # or supplier…"
+        fromDate={fromDate}
+        onFromDateChange={setFromDate}
+        toDate={toDate}
+        onToDateChange={setToDate}
+      />
+      <DataTable data={filteredRows} columns={columns} emptyMessage="No bills match." pageSize={15} />
     </div>
   );
 }

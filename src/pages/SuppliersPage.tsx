@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { enqueueCreate, loadCachedList } from "@/lib/offline";
+import { ListToolbar } from "@/components/ListToolbar";
 
 type Supplier = {
   id: string;
@@ -34,6 +35,7 @@ export function SuppliersPage() {
   const [rows, setRows] = useState<Supplier[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
   const [form, setForm] = useState({ supplier_name: "", email: "", phone: "" });
 
   const load = async () => {
@@ -104,6 +106,14 @@ export function SuppliersPage() {
     }
   };
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      `${r.name} ${r.supplier_type ?? ""} ${r.supplier_group ?? ""}`.toLowerCase().includes(q),
+    );
+  }, [rows, search]);
+
   if (loading) return <LoadingState label="Loading suppliers…" />;
   if (error) return <ErrorState title="Suppliers unavailable" description={error} onRetry={() => void load()} />;
 
@@ -114,7 +124,8 @@ export function SuppliersPage() {
         description="People and companies you buy from."
         actions={<Button onClick={() => setOpen(true)}>Add supplier</Button>}
       />
-      <DataTable data={rows} columns={columns} emptyMessage="No suppliers yet." />
+      <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search suppliers…" />
+      <DataTable data={filteredRows} columns={columns} emptyMessage="No suppliers match." pageSize={15} />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
