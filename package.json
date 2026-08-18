@@ -1,6 +1,8 @@
 {
   "name": "@zatgo/accounting-desktop",
   "version": "0.1.0",
+  "description": "ZatGo accounting desktop client",
+  "author": "ZatGo Innovation <team.zatgoinnovation@gmail.com>",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.js",
@@ -16,13 +18,14 @@
     "appId": "online.zatgo.accounting-desktop",
     "productName": "ZatGo Accounting",
     "executableName": "zatgo-accounting",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "files": ["dist/**", "dist-electron/**"],
     "directories": { "output": "release" },
     "win": {
       "target": ["portable"]
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": ["AppImage", "deb"],
       "category": "Office"
     }
   },
