@@ -9,15 +9,21 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "dist:win": "pnpm build && electron-builder --win --x64"
+    "dist:win": "pnpm build && electron-builder --win --x64",
+    "dist:linux": "pnpm build && electron-builder --linux --x64"
   },
   "build": {
     "appId": "online.zatgo.accounting-desktop",
     "productName": "ZatGo Accounting",
+    "executableName": "zatgo-accounting",
     "files": ["dist/**", "dist-electron/**"],
     "directories": { "output": "release" },
     "win": {
       "target": ["portable"]
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Office"
     }
   },
   "dependencies": {
