@@ -5,6 +5,9 @@ import { hydrateErpnextSession } from "@/lib/client";
 import { ConnectionPage } from "@/pages/ConnectionPage";
 import { HomePage } from "@/pages/HomePage";
 import { InvoicesPage } from "@/pages/InvoicesPage";
+import { QuotationsPage } from "@/pages/QuotationsPage";
+import { NewQuotationPage } from "@/pages/NewQuotationPage";
+import { QuotationDetailPage } from "@/pages/QuotationDetailPage";
 import { NewInvoicePage } from "@/pages/NewInvoicePage";
 import { InvoiceDetailPage } from "@/pages/InvoiceDetailPage";
 import { NewSalesReturnPage } from "@/pages/NewSalesReturnPage";
@@ -59,6 +62,9 @@ function AppRoutes() {
         <Route path="account-ledger" element={<AccountLedgerPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="customers/:name" element={<CustomerDetailPage />} />
+        <Route path="quotations" element={<QuotationsPage />} />
+        <Route path="quotations/new" element={<NewQuotationPage />} />
+        <Route path="quotations/:name" element={<QuotationDetailPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="invoices/new" element={<NewInvoicePage />} />
         <Route path="invoices/:name" element={<InvoiceDetailPage />} />

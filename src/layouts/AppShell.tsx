@@ -12,6 +12,7 @@ import {
   Banknote,
   BookOpen,
   Building2,
+  ClipboardList,
   CreditCard,
   FileText,
   GitBranch,
@@ -43,6 +44,7 @@ const nav: AppShellNavItem[] = [
   { href: "/customers", label: "Customers", icon: Users, section: "Masters" },
   { href: "/suppliers", label: "Suppliers", icon: Truck, section: "Masters" },
 
+  { href: "/quotations", label: "Quotation", icon: ClipboardList, section: "Transactions" },
   { href: "/invoices", label: "Sales", icon: FileText, section: "Transactions" },
   { href: "/bills", label: "Purchase", icon: Receipt, section: "Transactions" },
   { href: "/receipt", label: "Receipt", icon: Wallet, section: "Transactions" },
