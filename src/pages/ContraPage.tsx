@@ -55,7 +55,7 @@ export function ContraPage() {
 
   useEffect(() => {
     void load();
-    void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, { page: 1, page_size: 100 })
+    void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, {})
       .then((env) => setAccounts(Array.isArray(env.data) ? env.data : []))
       .catch(() => undefined);
     void callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, { page: 1, page_size: 100 })

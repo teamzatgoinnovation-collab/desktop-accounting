@@ -10,6 +10,7 @@ import type { OutboxStore } from "./outbox-store";
 type ApiEnvelope = {
   success?: boolean;
   data?: unknown;
+  meta?: { submitted?: boolean; submit_error?: string | null } | null;
   error?: { message?: string } | null;
 };
 
@@ -71,6 +72,17 @@ export class SyncEngine {
           const envelope = (parsed.message ?? parsed) as ApiEnvelope;
           if (envelope && envelope.success === false) {
             throw new Error(envelope.error?.message || "Request failed");
+          }
+          if (envelope?.meta && envelope.meta.submitted === false) {
+            // Voucher endpoints auto-submit right after insert so they post to
+            // GL immediately; a doc was created but couldn't be submitted
+            // (e.g. an ERPNext validation error). Treat as retryable rather
+            // than "synced" — retrying re-runs the same create call, which
+            // finds the existing draft via zatgo_client_id and retries just
+            // the submit step (see _try_auto_submit's idempotent branch).
+            throw new Error(
+              envelope.meta.submit_error || "Created but could not post to ledger — will retry.",
+            );
           }
 
           const data = envelope?.data;

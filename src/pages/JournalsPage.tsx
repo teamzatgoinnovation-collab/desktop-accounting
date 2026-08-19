@@ -63,10 +63,7 @@ export function JournalsPage() {
         return Array.isArray(env.data) ? env.data : [];
       }),
       loadCachedList<Account>("accounts", async () => {
-        const env = await callZatGoApi<Account[]>(ZatGoApi.accounting.journalsListAccounts, {
-          page: 1,
-          page_size: 100,
-        });
+        const env = await callZatGoApi<Account[]>(ZatGoApi.accounting.journalsListAccounts, {});
         return Array.isArray(env.data) ? env.data : [];
       }),
       loadCachedList<CostCenter>("cost-centers", async () => {

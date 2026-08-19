@@ -49,7 +49,7 @@ export function AccountLedgerPage() {
   const [loadedOnce, setLoadedOnce] = useState(false);
 
   useEffect(() => {
-    void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, { page: 1, page_size: 200 })
+    void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, {})
       .then((env) => setAccounts((Array.isArray(env.data) ? env.data : []).filter((a) => !a.is_group)))
       .catch(() => undefined);
   }, []);

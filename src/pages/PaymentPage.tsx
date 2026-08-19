@@ -48,7 +48,7 @@ export function PaymentPage() {
     void callZatGoApi<PartyOption[]>(ZatGoApi.accounting.suppliersList, { page: 1, page_size: 200 })
       .then((env) => setSuppliers(Array.isArray(env.data) ? env.data : []))
       .catch(() => undefined);
-    void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, { page: 1, page_size: 100 })
+    void callZatGoApi<AccountOption[]>(ZatGoApi.accounting.journalsListAccounts, {})
       .then((env) => setAccounts(Array.isArray(env.data) ? env.data : []))
       .catch(() => undefined);
   }, []);
