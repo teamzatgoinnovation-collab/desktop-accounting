@@ -7,24 +7,17 @@ import {
   type CommandPaletteItem,
 } from "@zatgo/ui";
 import {
-  ArrowLeftRight,
-  Banknote,
-  BookOpen,
-  ClipboardList,
   CreditCard,
   FileText,
   GitBranch,
-  KeyRound,
   LayoutDashboard,
   Moon,
   Plus,
   Receipt,
-  ScrollText,
   Settings,
   Sun,
   Truck,
   Users,
-  Wallet,
 } from "@zatgo/icons";
 import { useMemo, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -40,19 +33,12 @@ const nav: AppShellNavItem[] = [
   { href: "/suppliers", label: "Suppliers", icon: Truck, section: "Masters" },
 
   { href: "/vouchers/new", label: "New Voucher", icon: Plus, section: "Transactions" },
-  { href: "/quotations", label: "Quotation", icon: ClipboardList, section: "Transactions" },
   { href: "/invoices", label: "Sales", icon: FileText, section: "Transactions" },
   { href: "/bills", label: "Purchase", icon: Receipt, section: "Transactions" },
-  { href: "/receipt", label: "Receipt", icon: Wallet, section: "Transactions" },
-  { href: "/payment", label: "Payment", icon: Banknote, section: "Transactions" },
-  { href: "/contra", label: "Contra", icon: ArrowLeftRight, section: "Transactions" },
-  { href: "/journals", label: "Journal", icon: BookOpen, section: "Transactions" },
 
-  { href: "/account-ledger", label: "Account Ledger", icon: ScrollText, section: "Ledgers & Reports" },
   { href: "/reports", label: "Reports", icon: CreditCard, section: "Ledgers & Reports" },
 
   { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/connection", label: "Connection", icon: KeyRound },
 ];
 
 export function AppShell() {
