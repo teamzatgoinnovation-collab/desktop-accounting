@@ -1,7 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   AppShellLayout,
-  Badge,
   Button,
   CommandPalette,
   type AppShellNavItem,
@@ -11,22 +10,18 @@ import {
   ArrowLeftRight,
   Banknote,
   BookOpen,
-  Building2,
   ClipboardList,
   CreditCard,
   FileText,
   GitBranch,
   KeyRound,
-  Layers,
   LayoutDashboard,
   Moon,
-  Package,
+  Plus,
   Receipt,
-  RotateCcw,
   ScrollText,
   Settings,
   Sun,
-  Tags,
   Truck,
   Users,
   Wallet,
@@ -44,6 +39,7 @@ const nav: AppShellNavItem[] = [
   { href: "/customers", label: "Customers", icon: Users, section: "Masters" },
   { href: "/suppliers", label: "Suppliers", icon: Truck, section: "Masters" },
 
+  { href: "/vouchers/new", label: "New Voucher", icon: Plus, section: "Transactions" },
   { href: "/quotations", label: "Quotation", icon: ClipboardList, section: "Transactions" },
   { href: "/invoices", label: "Sales", icon: FileText, section: "Transactions" },
   { href: "/bills", label: "Purchase", icon: Receipt, section: "Transactions" },
@@ -55,12 +51,6 @@ const nav: AppShellNavItem[] = [
   { href: "/account-ledger", label: "Account Ledger", icon: ScrollText, section: "Ledgers & Reports" },
   { href: "/reports", label: "Reports", icon: CreditCard, section: "Ledgers & Reports" },
 
-  { href: "/products", label: "Products", icon: Package, section: "Inventory" },
-  { href: "/item-groups", label: "Item Groups", icon: Tags, section: "Inventory" },
-  { href: "/stock", label: "Stock", icon: Layers, section: "Inventory" },
-  { href: "/warehouses", label: "Warehouses", icon: Building2, section: "Inventory" },
-
-  { href: "/sync", label: "Sync Center", icon: RotateCcw },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/connection", label: "Connection", icon: KeyRound },
 ];
@@ -75,32 +65,10 @@ export function AppShell() {
   const fullName = useSessionStore((s) => s.fullName);
   const [version, setVersion] = useState("dev");
   const [signingOut, setSigningOut] = useState(false);
-  const [outboxCounts, setOutboxCounts] = useState<OutboxCounts | null>(null);
-  const [online, setOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     void window.zatgoDesktop?.getAppVersion().then(setVersion).catch(() => undefined);
   }, []);
-
-  useEffect(() => {
-    void window.zatgoDesktop?.outboxCounts().then(setOutboxCounts).catch(() => undefined);
-    const unsubscribe = window.zatgoDesktop?.onOutboxChanged?.(setOutboxCounts);
-    return () => unsubscribe?.();
-  }, []);
-
-  useEffect(() => {
-    const onOnline = () => setOnline(true);
-    const onOffline = () => setOnline(false);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-    };
-  }, []);
-
-  const pendingCount = (outboxCounts?.pending ?? 0) + (outboxCounts?.uploading ?? 0);
-  const failedCount = outboxCounts?.failed ?? 0;
 
   const onSignOut = async () => {
     setSigningOut(true);
@@ -165,20 +133,6 @@ export function AppShell() {
         headerTitle={<span className="text-[var(--color-muted-foreground)]">⌘K for commands</span>}
         headerActions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => navigate("/sync")}
-              title={online ? "Online" : "Offline — working locally"}
-            >
-              <span
-                className={`size-2 rounded-full ${online ? "bg-[var(--color-primary)]" : "bg-[var(--color-muted-foreground)]"}`}
-              />
-              {online ? "Online" : "Offline"}
-              {pendingCount > 0 ? <Badge variant="secondary">{pendingCount} pending</Badge> : null}
-              {failedCount > 0 ? <Badge variant="destructive">{failedCount} failed</Badge> : null}
-            </Button>
             <Button variant="outline" size="sm" disabled={signingOut} onClick={() => void onSignOut()}>
               Sign out
             </Button>

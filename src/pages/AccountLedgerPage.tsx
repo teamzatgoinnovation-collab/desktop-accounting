@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ZatGoApi } from "@zatgo/erpnext";
 import {
   Button,
+  Combobox,
   DataTable,
   ErrorState,
   Input,
@@ -31,9 +32,6 @@ type LedgerRow = {
   remarks?: string;
   balance: number;
 };
-
-const selectClass =
-  "h-10 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm";
 
 export function AccountLedgerPage() {
   const [search, setSearch] = useSearchParams();
@@ -127,19 +125,13 @@ export function AccountLedgerPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[240px] space-y-1">
           <Label htmlFor="account">Account</Label>
-          <select
-            id="account"
-            className={selectClass}
+          <Combobox
             value={account}
-            onChange={(e) => onAccountChange(e.target.value)}
-          >
-            <option value="">Select an account…</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.account_name || a.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={onAccountChange}
+            placeholder="Select an account…"
+            searchPlaceholder="Search accounts…"
+            options={accounts.map((a) => ({ value: a.id, label: a.account_name || a.name, keywords: a.id }))}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="from">From</Label>

@@ -18,7 +18,6 @@ import {
 } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
-import { enqueueCreate, loadCachedList } from "@/lib/offline";
 import { ListToolbar } from "@/components/ListToolbar";
 
 type Supplier = {
@@ -42,12 +41,8 @@ export function SuppliersPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await loadCachedList<Supplier>("suppliers", async () => {
-        const env = await callZatGoApi<Supplier[]>(ZatGoApi.accounting.suppliersList, { page: 1, page_size: 100 });
-        return Array.isArray(env.data) ? env.data : [];
-      });
-      setRows(result.data);
-      if (result.stale) toast.info("Showing last-known suppliers — offline");
+      const env = await callZatGoApi<Supplier[]>(ZatGoApi.accounting.suppliersList, { page: 1, page_size: 100 });
+      setRows(Array.isArray(env.data) ? env.data : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load suppliers");
     } finally {
@@ -86,16 +81,13 @@ export function SuppliersPage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "supplier",
-        method: ZatGoApi.accounting.suppliersCreate,
-        args: {
-          supplier_name: form.supplier_name.trim(),
-          email: form.email || undefined,
-          phone: form.phone || undefined,
-        },
+      await callZatGoApi(ZatGoApi.accounting.suppliersCreate, {
+        supplier_name: form.supplier_name.trim(),
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Supplier queued — syncing");
+      toast.success("Supplier created");
       setOpen(false);
       setForm({ supplier_name: "", email: "", phone: "" });
       await load();

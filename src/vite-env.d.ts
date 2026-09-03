@@ -11,26 +11,6 @@ declare global {
     baseUrl: string;
   };
 
-  type OutboxStatus = "pending" | "uploading" | "synced" | "failed";
-
-  type OutboxItem = {
-    id: string;
-    clientId: string;
-    entityType: string;
-    method: string;
-    argsJson: string;
-    status: OutboxStatus;
-    attempts: number;
-    lastError: string | null;
-    nextRetryAt: string | null;
-    resultName: string | null;
-    resultDataJson: string | null;
-    createdAt: string;
-    updatedAt: string;
-  };
-
-  type OutboxCounts = Record<OutboxStatus, number>;
-
   type ZatGoDesktopApi = {
     getAppVersion: () => Promise<string>;
     getPlatform: () => Promise<string>;
@@ -47,20 +27,6 @@ declare global {
       body?: string | null;
       headers?: Record<string, string>;
     }) => Promise<{ ok: boolean; status: number; bodyText: string }>;
-    outboxEnqueue: (input: {
-      entityType: string;
-      clientId: string;
-      method: string;
-      args: Record<string, unknown>;
-    }) => Promise<OutboxItem>;
-    outboxList: (status?: OutboxStatus) => Promise<OutboxItem[]>;
-    outboxCounts: () => Promise<OutboxCounts>;
-    outboxFlush: () => Promise<{ uploaded: number; failed: number; skipped?: string }>;
-    outboxRequeue: (id: string) => Promise<void>;
-    outboxRequeueAllFailed: () => Promise<number>;
-    onOutboxChanged: (cb: (counts: OutboxCounts) => void) => () => void;
-    cacheGet: (key: string) => Promise<{ data: unknown[]; updatedAt: string } | null>;
-    cacheSet: (key: string, data: unknown[]) => Promise<void>;
   };
 
   interface Window {

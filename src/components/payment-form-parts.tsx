@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, DataTable, ErrorState, Input, Label, LoadingState } from "@zatgo/ui";
+import { Button, Combobox, DataTable, ErrorState, Input, Label, LoadingState } from "@zatgo/ui";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
@@ -18,7 +18,8 @@ export type PaymentRow = {
   docstatus?: number;
 };
 
-export type AccountOption = { id: string; name: string; account_name?: string };
+export type AccountOption = { id: string; name: string; account_name?: string; account_type?: string };
+export const isCashOrBankAccountType = (type?: string) => type === "Cash" || type === "Bank";
 export type PartyOption = { id: string; name: string; customer_name?: string; supplier_name?: string };
 export type CostCenter = { id: string; name: string; cost_center_name?: string };
 export type InvoiceLine = { name: string; amount: string };
@@ -53,19 +54,13 @@ export function AdvancedPaymentFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-cc`}>Cost center (optional)</Label>
-            <select
-              id={`${idPrefix}-cc`}
-              className={selectClass}
+            <Combobox
               value={costCenter}
-              onChange={(e) => onCostCenterChange(e.target.value)}
-            >
-              <option value="">Select…</option>
-              {costCenters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.cost_center_name || c.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={onCostCenterChange}
+              placeholder="Select…"
+              searchPlaceholder="Search cost centers…"
+              options={costCenters.map((c) => ({ value: c.id, label: c.cost_center_name || c.name, keywords: c.name }))}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-proj`}>Project (optional)</Label>
@@ -144,18 +139,13 @@ export function SplitAccountLinesEditor({
       <Label>Split across accounts</Label>
       {lines.map((line, idx) => (
         <div key={idx} className="grid gap-2 sm:grid-cols-[1fr_140px_auto]">
-          <select
-            className={selectClass}
+          <Combobox
             value={line.account}
-            onChange={(e) => onChange(lines.map((l, i) => (i === idx ? { ...l, account: e.target.value } : l)))}
-          >
-            <option value="">Account…</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.account_name || a.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={(v) => onChange(lines.map((l, i) => (i === idx ? { ...l, account: v } : l)))}
+            placeholder="Account…"
+            searchPlaceholder="Search accounts…"
+            options={accounts.map((a) => ({ value: a.id, label: a.account_name || a.name, keywords: a.name }))}
+          />
           <Input
             type="number"
             placeholder="Amount"

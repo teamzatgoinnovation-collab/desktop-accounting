@@ -2,13 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, DataTable, ErrorState, Input, Label, LoadingState, PageHeader } from "@zatgo/ui";
-
-const selectClass =
-  "h-10 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm";
+import {
+  Button,
+  Combobox,
+  DataTable,
+  ErrorState,
+  Input,
+  Label,
+  LoadingState,
+  PageHeader,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
-import { enqueueCreate, loadCachedList } from "@/lib/offline";
 import { money } from "@/lib/format";
 import { ListToolbar } from "@/components/ListToolbar";
 
@@ -54,40 +64,27 @@ export function JournalsPage() {
   const load = async () => {
     setLoading(true);
     setError(null);
-    // Two independent cache-then-network loads: a network failure (offline)
-    // must never block the create form behind a full-page error — accounts
-    // (needed for the picker) and the journal list degrade independently.
+    // Three independent loads: one failing must never block the create form
+    // behind a full-page error — accounts/cost-centers (needed for the
+    // picker) and the journal list degrade independently.
     const [journalsResult, accountsResult, costCentersResult] = await Promise.allSettled([
-      loadCachedList<Journal>("journals", async () => {
-        const env = await callZatGoApi<Journal[]>(ZatGoApi.accounting.journalsList, { page: 1, page_size: 50 });
-        return Array.isArray(env.data) ? env.data : [];
-      }),
-      loadCachedList<Account>("accounts", async () => {
-        const env = await callZatGoApi<Account[]>(ZatGoApi.accounting.journalsListAccounts, {});
-        return Array.isArray(env.data) ? env.data : [];
-      }),
-      loadCachedList<CostCenter>("cost-centers", async () => {
-        const env = await callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, {
-          page: 1,
-          page_size: 100,
-        });
-        return Array.isArray(env.data) ? env.data : [];
-      }),
+      callZatGoApi<Journal[]>(ZatGoApi.accounting.journalsList, { page: 1, page_size: 50 }),
+      callZatGoApi<Account[]>(ZatGoApi.accounting.journalsListAccounts, {}),
+      callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, { page: 1, page_size: 100 }),
     ]);
 
     if (journalsResult.status === "fulfilled") {
-      setRows(journalsResult.value.data);
+      setRows(Array.isArray(journalsResult.value.data) ? journalsResult.value.data : []);
     } else if (rows.length === 0) {
       setError(
         journalsResult.reason instanceof Error ? journalsResult.reason.message : "Failed to load journals",
       );
     }
     if (accountsResult.status === "fulfilled") {
-      setAccounts(accountsResult.value.data);
-      if (accountsResult.value.stale) toast.info("Showing last-known accounts — offline");
+      setAccounts(Array.isArray(accountsResult.value.data) ? accountsResult.value.data : []);
     }
     if (costCentersResult.status === "fulfilled") {
-      setCostCenters(costCentersResult.value.data);
+      setCostCenters(Array.isArray(costCentersResult.value.data) ? costCentersResult.value.data : []);
     }
     setLoading(false);
   };
@@ -139,24 +136,21 @@ export function JournalsPage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "journal_entry",
-        method: ZatGoApi.accounting.journalsCreate,
-        args: {
-          accounts: valid.map((l) => ({
-            account: l.account,
-            debit: l.debit,
-            credit: l.credit,
-            cost_center: l.cost_center || undefined,
-            party_type: l.party_type || undefined,
-            party: l.party || undefined,
-          })),
-          user_remark: remark || undefined,
-          reference_no: referenceNo || undefined,
-          reference_date: referenceDate || undefined,
-        },
+      await callZatGoApi(ZatGoApi.accounting.journalsCreate, {
+        accounts: valid.map((l) => ({
+          account: l.account,
+          debit: l.debit,
+          credit: l.credit,
+          cost_center: l.cost_center || undefined,
+          party_type: l.party_type || undefined,
+          party: l.party || undefined,
+        })),
+        user_remark: remark || undefined,
+        reference_no: referenceNo || undefined,
+        reference_date: referenceDate || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Journal queued — syncing");
+      toast.success("Journal created");
       setLines([emptyLine(), emptyLine()]);
       setRemark("");
       setReferenceNo("");
@@ -197,20 +191,13 @@ export function JournalsPage() {
         {lines.map((line, idx) => (
           <div key={idx} className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] p-2">
             <div className="grid gap-2 sm:grid-cols-4">
-              <select
-                className={selectClass}
+              <Combobox
                 value={line.account}
-                onChange={(e) =>
-                  setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, account: e.target.value } : l)))
-                }
-              >
-                <option value="">Account…</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.account_name || a.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, account: v } : l)))}
+                placeholder="Account…"
+                searchPlaceholder="Search accounts…"
+                options={accounts.map((a) => ({ value: a.id, label: a.account_name || a.name, keywords: a.name }))}
+              />
               <Input
                 type="number"
                 min={0}
@@ -235,35 +222,31 @@ export function JournalsPage() {
                   )
                 }
               />
-              <select
-                className={selectClass}
+              <Combobox
                 value={line.cost_center}
-                onChange={(e) =>
-                  setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, cost_center: e.target.value } : l)))
-                }
-              >
-                <option value="">Cost center…</option>
-                {costCenters.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.cost_center_name || c.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, cost_center: v } : l)))}
+                placeholder="Cost center…"
+                searchPlaceholder="Search cost centers…"
+                options={costCenters.map((c) => ({ value: c.id, label: c.cost_center_name || c.name, keywords: c.name }))}
+              />
             </div>
             {showMore ? (
               <div className="grid gap-2 sm:grid-cols-2">
-                <select
-                  className={selectClass}
+                <Select
                   value={line.party_type}
-                  onChange={(e) =>
-                    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, party_type: e.target.value, party: "" } : l)))
+                  onValueChange={(value) =>
+                    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, party_type: value, party: "" } : l)))
                   }
                 >
-                  <option value="">Party type (optional)…</option>
-                  <option value="Customer">Customer</option>
-                  <option value="Supplier">Supplier</option>
-                  <option value="Employee">Employee</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Party type (optional)…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Customer">Customer</SelectItem>
+                    <SelectItem value="Supplier">Supplier</SelectItem>
+                    <SelectItem value="Employee">Employee</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Input
                   placeholder="Party (customer/supplier name)"
                   value={line.party}
@@ -288,13 +271,14 @@ export function JournalsPage() {
             </div>
           </div>
         ) : null}
-        <button
+        <Button
           type="button"
-          className="text-sm text-[var(--color-primary)] underline-offset-2 hover:underline"
+          variant="link"
+          className="h-auto p-0 text-sm"
           onClick={() => setShowMore((v) => !v)}
         >
           {showMore ? "Show less details" : "Show more details"}
-        </button>
+        </Button>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Button
             variant="outline"

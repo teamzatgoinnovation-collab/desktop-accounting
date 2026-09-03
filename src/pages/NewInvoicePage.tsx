@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, Input, Label, PageHeader } from "@zatgo/ui";
+import { Button, Combobox, Input, Label, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
-import { enqueueCreate, loadCachedList } from "@/lib/offline";
 
 type Party = { id: string; name: string };
 type Item = { id: string; name: string; item_code?: string; rate?: number };
@@ -34,29 +33,13 @@ export function NewInvoicePage() {
     void (async () => {
       try {
         const [c, i, cc] = await Promise.all([
-          loadCachedList<Party>("customers", async () => {
-            const env = await callZatGoApi<Party[]>(ZatGoApi.accounting.customersList, { page: 1, page_size: 100 });
-            return Array.isArray(env.data) ? env.data : [];
-          }),
-          loadCachedList<Item>("items", async () => {
-            const env = await callZatGoApi<Item[]>(ZatGoApi.accounting.invoicesListItems, {
-              page: 1,
-              page_size: 100,
-            });
-            return Array.isArray(env.data) ? env.data : [];
-          }),
-          loadCachedList<CostCenter>("cost-centers", async () => {
-            const env = await callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, {
-              page: 1,
-              page_size: 100,
-            });
-            return Array.isArray(env.data) ? env.data : [];
-          }),
+          callZatGoApi<Party[]>(ZatGoApi.accounting.customersList, { page: 1, page_size: 100 }),
+          callZatGoApi<Item[]>(ZatGoApi.accounting.invoicesListItems, { page: 1, page_size: 100 }),
+          callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, { page: 1, page_size: 100 }),
         ]);
-        setCustomers(c.data);
-        setItems(i.data);
-        setCostCenters(cc.data);
-        if (c.stale || i.stale) toast.info("Showing last-known data — offline");
+        setCustomers(Array.isArray(c.data) ? c.data : []);
+        setItems(Array.isArray(i.data) ? i.data : []);
+        setCostCenters(Array.isArray(cc.data) ? cc.data : []);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to load form data");
       }
@@ -75,18 +58,16 @@ export function NewInvoicePage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "sales_invoice",
-        method: ZatGoApi.accounting.invoicesCreate,
-        args: {
-          customer,
-          items: valid,
-          cost_center: costCenter || undefined,
-          project: project || undefined,
-        },
+      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.invoicesCreate, {
+        customer,
+        items: valid,
+        cost_center: costCenter || undefined,
+        project: project || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Invoice queued — syncing");
-      navigate("/sync", { replace: true });
+      const createdName = env.data?.name;
+      toast.success(createdName ? `Invoice ${createdName} created` : "Invoice created");
+      navigate(createdName ? `/invoices/${encodeURIComponent(createdName)}` : "/invoices", { replace: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Create failed");
     } finally {
@@ -108,45 +89,35 @@ export function NewInvoicePage() {
 
       <div className="max-w-xl space-y-2">
         <Label htmlFor="customer">Customer</Label>
-        <select
-          id="customer"
-          className="h-10 w-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm"
+        <Combobox
           value={customer}
-          onChange={(e) => setCustomer(e.target.value)}
-        >
-          <option value="">Select…</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          onValueChange={setCustomer}
+          placeholder="Select…"
+          searchPlaceholder="Search customers…"
+          options={customers.map((c) => ({ value: c.id, label: c.name }))}
+        />
       </div>
 
       <div className="space-y-3">
         <h2 className="text-lg font-medium">Lines</h2>
         {lines.map((line, idx) => (
           <div key={idx} className="grid gap-2 sm:grid-cols-4">
-            <select
-              className="h-10 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm sm:col-span-2"
-              value={line.item_code}
-              onChange={(e) => {
-                const code = e.target.value;
-                const item = items.find((i) => (i.item_code || i.id) === code);
-                setLines((prev) =>
-                  prev.map((l, i) =>
-                    i === idx ? { ...l, item_code: code, rate: Number(item?.rate || l.rate || 0) } : l,
-                  ),
-                );
-              }}
-            >
-              <option value="">Item…</option>
-              {items.map((it) => (
-                <option key={it.id} value={it.item_code || it.id}>
-                  {it.name}
-                </option>
-              ))}
-            </select>
+            <div className="sm:col-span-2">
+              <Combobox
+                value={line.item_code}
+                onValueChange={(code) => {
+                  const item = items.find((i) => (i.item_code || i.id) === code);
+                  setLines((prev) =>
+                    prev.map((l, i) =>
+                      i === idx ? { ...l, item_code: code, rate: Number(item?.rate || l.rate || 0) } : l,
+                    ),
+                  );
+                }}
+                placeholder="Item…"
+                searchPlaceholder="Search items…"
+                options={items.map((it) => ({ value: it.item_code || it.id, label: it.name }))}
+              />
+            </div>
             <Input
               type="number"
               min={0}
@@ -180,19 +151,13 @@ export function NewInvoicePage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="cc">Cost center (optional)</Label>
-              <select
-                id="cc"
-                className="h-10 w-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm"
+              <Combobox
                 value={costCenter}
-                onChange={(e) => setCostCenter(e.target.value)}
-              >
-                <option value="">Select…</option>
-                {costCenters.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.cost_center_name || c.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setCostCenter}
+                placeholder="Select…"
+                searchPlaceholder="Search cost centers…"
+                options={costCenters.map((c) => ({ value: c.id, label: c.cost_center_name || c.name }))}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="proj">Project (optional)</Label>

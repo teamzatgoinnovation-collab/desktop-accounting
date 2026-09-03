@@ -12,20 +12,15 @@ import { NewInvoicePage } from "@/pages/NewInvoicePage";
 import { InvoiceDetailPage } from "@/pages/InvoiceDetailPage";
 import { NewSalesReturnPage } from "@/pages/NewSalesReturnPage";
 import { NewPurchaseReturnPage } from "@/pages/NewPurchaseReturnPage";
+import { NewVoucherPage } from "@/pages/NewVoucherPage";
 import { ReceiptPage } from "@/pages/ReceiptPage";
 import { PaymentPage } from "@/pages/PaymentPage";
 import { ContraPage } from "@/pages/ContraPage";
 import { JournalsPage } from "@/pages/JournalsPage";
 import { JournalDetailPage } from "@/pages/JournalDetailPage";
 import { ReportsPage } from "@/pages/ReportsPage";
-import { ProductsPage } from "@/pages/ProductsPage";
-import { ProductDetailPage } from "@/pages/ProductDetailPage";
-import { ItemGroupsPage } from "@/pages/ItemGroupsPage";
 import { ChartOfAccountsPage } from "@/pages/ChartOfAccountsPage";
 import { AccountLedgerPage } from "@/pages/AccountLedgerPage";
-import { StockPage } from "@/pages/StockPage";
-import { WarehousesPage } from "@/pages/WarehousesPage";
-import { WarehouseDetailPage } from "@/pages/WarehouseDetailPage";
 import { CustomersPage } from "@/pages/CustomersPage";
 import { CustomerDetailPage } from "@/pages/CustomerDetailPage";
 import { SuppliersPage } from "@/pages/SuppliersPage";
@@ -34,7 +29,6 @@ import { BillsPage } from "@/pages/BillsPage";
 import { NewBillPage } from "@/pages/NewBillPage";
 import { BillDetailPage } from "@/pages/BillDetailPage";
 import { SettingsPage } from "@/pages/SettingsPage";
-import { SyncCenterPage } from "@/pages/SyncCenterPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { useSessionStore } from "@/store/session";
 
@@ -75,21 +69,14 @@ function AppRoutes() {
         <Route path="bills/new" element={<NewBillPage />} />
         <Route path="bills/:name" element={<BillDetailPage />} />
         <Route path="bills/:name/return" element={<NewPurchaseReturnPage />} />
+        <Route path="vouchers/new" element={<NewVoucherPage />} />
         <Route path="receipt" element={<ReceiptPage />} />
         <Route path="payment" element={<PaymentPage />} />
         <Route path="contra" element={<ContraPage />} />
         <Route path="journals" element={<JournalsPage />} />
         <Route path="journals/:name" element={<JournalDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
-        <Route path="products" element={<ProductsPage />} />
-        <Route path="products/:name" element={<ProductDetailPage />} />
-        <Route path="items" element={<Navigate to="/products" replace />} />
-        <Route path="item-groups" element={<ItemGroupsPage />} />
-        <Route path="stock" element={<StockPage />} />
-        <Route path="warehouses" element={<WarehousesPage />} />
-        <Route path="warehouses/:name" element={<WarehouseDetailPage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="sync" element={<SyncCenterPage />} />
         <Route path="connection" element={<ConnectionPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

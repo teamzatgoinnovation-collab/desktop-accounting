@@ -4,7 +4,6 @@ import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, ErrorState, Input, Label, LoadingState, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
-import { enqueueCreate } from "@/lib/offline";
 import { money } from "@/lib/format";
 
 type BillItem = {
@@ -70,17 +69,15 @@ export function NewPurchaseReturnPage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "purchase_return",
-        method: ZatGoApi.accounting.purchaseInvoicesCreateReturn,
-        args: {
-          return_against: name,
-          items: valid.map((l) => ({ item_code: l.item_code, qty: l.return_qty })),
-          reason: reason || undefined,
-        },
+      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.purchaseInvoicesCreateReturn, {
+        return_against: name,
+        items: valid.map((l) => ({ item_code: l.item_code, qty: l.return_qty })),
+        reason: reason || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Debit note queued — syncing");
-      navigate("/sync");
+      const createdName = env.data?.name;
+      toast.success(createdName ? `Debit note ${createdName} created` : "Debit note created");
+      navigate(createdName ? `/bills/${encodeURIComponent(createdName)}` : "/bills");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Create return failed");
     } finally {

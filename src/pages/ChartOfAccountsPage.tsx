@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ZatGoApi } from "@zatgo/erpnext";
 import {
   Button,
+  Combobox,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -15,7 +16,7 @@ import {
   PageHeader,
   Switch,
 } from "@zatgo/ui";
-import { ChevronDown, ChevronRight } from "@zatgo/icons";
+import { ChevronDown, ChevronRight, Plus } from "@zatgo/icons";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
@@ -47,6 +48,7 @@ function AccountRow({
   expanded,
   onToggle,
   onSelect,
+  onAddChild,
   matches,
 }: {
   account: Account;
@@ -55,6 +57,7 @@ function AccountRow({
   expanded: Set<string>;
   onToggle: (id: string) => void;
   onSelect: (account: Account) => void;
+  onAddChild: (account: Account) => void;
   matches: Set<string> | null;
 }) {
   const kids = childrenByParent.get(account.id) || [];
@@ -64,7 +67,7 @@ function AccountRow({
   return (
     <div>
       <div
-        className="flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm hover:bg-[var(--color-muted)]"
+        className="group flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm hover:bg-[var(--color-muted)]"
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
         onClick={() => (account.is_group ? onToggle(account.id) : onSelect(account))}
       >
@@ -83,7 +86,20 @@ function AccountRow({
             Disabled
           </span>
         ) : null}
-        {!account.is_group ? (
+        {account.is_group ? (
+          <button
+            type="button"
+            title={`Add account under ${account.account_name}`}
+            className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-[var(--color-primary)] opacity-0 hover:bg-[var(--color-background)] group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddChild(account);
+            }}
+          >
+            <Plus className="size-3.5" />
+            Add
+          </button>
+        ) : (
           <button
             type="button"
             className="ml-auto text-xs text-[var(--color-primary)] underline-offset-2 hover:underline"
@@ -94,7 +110,7 @@ function AccountRow({
           >
             View
           </button>
-        ) : null}
+        )}
       </div>
       {account.is_group && isOpen
         ? kids.map((child) => (
@@ -106,6 +122,7 @@ function AccountRow({
               expanded={expanded}
               onToggle={onToggle}
               onSelect={onSelect}
+              onAddChild={onAddChild}
               matches={matches}
             />
           ))
@@ -203,6 +220,17 @@ export function ChartOfAccountsPage() {
     });
   };
 
+  const openCreate = (parentAccount?: Account) => {
+    setForm({
+      account_name: "",
+      parent_account: parentAccount?.id || "",
+      account_type: "",
+      is_group: false,
+      account_number: "",
+    });
+    setOpen(true);
+  };
+
   const onSelect = async (account: Account) => {
     setSelected(account);
     setBalance(null);
@@ -264,7 +292,7 @@ export function ChartOfAccountsPage() {
       <PageHeader
         title="Chart of Accounts"
         description="Account tree — balances come directly from ERPNext, never computed locally."
-        actions={<Button onClick={() => setOpen(true)}>+ New account</Button>}
+        actions={<Button onClick={() => openCreate()}>+ New account</Button>}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -298,6 +326,7 @@ export function ChartOfAccountsPage() {
                 expanded={expanded}
                 onToggle={onToggle}
                 onSelect={(acc) => void onSelect(acc)}
+                onAddChild={openCreate}
                 matches={matches}
               />
             ))
@@ -363,19 +392,13 @@ export function ChartOfAccountsPage() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="acparent">Parent account (group)</Label>
-              <select
-                id="acparent"
-                className={selectClass}
+              <Combobox
                 value={form.parent_account}
-                onChange={(e) => setForm((f) => ({ ...f, parent_account: e.target.value }))}
-              >
-                <option value="">Select…</option>
-                {groupAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.account_name} ({a.root_type})
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setForm((f) => ({ ...f, parent_account: v }))}
+                placeholder="Select…"
+                searchPlaceholder="Search accounts…"
+                options={groupAccounts.map((a) => ({ value: a.id, label: `${a.account_name} (${a.root_type})`, keywords: a.id }))}
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">

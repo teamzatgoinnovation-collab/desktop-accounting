@@ -1,6 +1,26 @@
 import { useState } from "react";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from "@zatgo/ui";
+import {
+  Button,
+  Input,
+  Label,
+  PageHeader,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
@@ -42,6 +62,7 @@ const VOUCHER_TYPES = [
   "Journal Entry",
   "Stock Entry",
 ];
+const ALL_VOUCHER_TYPES = "__all__";
 
 type PlData = {
   from_date?: string;
@@ -197,18 +218,22 @@ export function ReportsPage() {
             type to see just one transaction kind.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="h-10 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-transparent px-3 text-sm"
-              value={glVoucherType}
-              onChange={(e) => setGlVoucherType(e.target.value)}
+            <Select
+              value={glVoucherType || ALL_VOUCHER_TYPES}
+              onValueChange={(value) => setGlVoucherType(value === ALL_VOUCHER_TYPES ? "" : value)}
             >
-              <option value="">All voucher types</option>
-              {VOUCHER_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VOUCHER_TYPES}>All voucher types</SelectItem>
+                {VOUCHER_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button disabled={busy} onClick={() => void loadGl()}>
               Run
             </Button>
@@ -311,36 +336,32 @@ function ReportTable({
         </div>
       ) : null}
       <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)]">
-        <table className="w-full text-sm">
-          <thead className="bg-[var(--color-muted)] text-left">
-            <tr>
+        <Table>
+          <TableHeader>
+            <TableRow>
               {headers.map((h) => (
-                <th key={h} className="px-4 py-2">
-                  {h}
-                </th>
+                <TableHead key={h}>{h}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-[var(--color-muted-foreground)]" colSpan={headers.length}>
+              <TableRow>
+                <TableCell className="text-[var(--color-muted-foreground)]" colSpan={headers.length}>
                   Run the report to see rows.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               rows.map((row, i) => (
-                <tr key={i} className="border-t border-[var(--color-border)]">
+                <TableRow key={i}>
                   {row.map((cell, j) => (
-                    <td key={j} className="px-4 py-2">
-                      {cell}
-                    </td>
+                    <TableCell key={j}>{cell}</TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

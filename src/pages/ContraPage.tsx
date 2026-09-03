@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, DataTable, ErrorState, Input, Label, LoadingState, PageHeader } from "@zatgo/ui";
+import { Button, Combobox, DataTable, ErrorState, Input, Label, LoadingState, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
-import { enqueueCreate } from "@/lib/offline";
 import { money } from "@/lib/format";
 import { ListToolbar } from "@/components/ListToolbar";
-import { type AccountOption, type CostCenter, selectClass } from "@/components/payment-form-parts";
+import { type AccountOption, type CostCenter } from "@/components/payment-form-parts";
 
 type ContraLine = { account: string; debit: number; credit: number; cost_center: string };
 const emptyLine = (): ContraLine => ({ account: "", debit: 0, credit: 0, cost_center: "" });
@@ -99,22 +98,19 @@ export function ContraPage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "contra_entry",
-        method: ZatGoApi.accounting.journalsCreate,
-        args: {
-          accounts: valid.map((l) => ({
-            account: l.account,
-            debit: l.debit,
-            credit: l.credit,
-            cost_center: l.cost_center || undefined,
-          })),
-          voucher_type: "Contra Entry",
-          reference_no: referenceNo || undefined,
-          user_remark: remarks || undefined,
-        },
+      await callZatGoApi(ZatGoApi.accounting.journalsCreate, {
+        accounts: valid.map((l) => ({
+          account: l.account,
+          debit: l.debit,
+          credit: l.credit,
+          cost_center: l.cost_center || undefined,
+        })),
+        voucher_type: "Contra Entry",
+        reference_no: referenceNo || undefined,
+        user_remark: remarks || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Contra entry queued — syncing");
+      toast.success("Contra entry created");
       setLines([emptyLine(), emptyLine()]);
       setReferenceNo("");
       setRemarks("");
@@ -189,20 +185,13 @@ export function ContraPage() {
         </p>
         {lines.map((line, idx) => (
           <div key={idx} className="grid gap-2 sm:grid-cols-4">
-            <select
-              className={selectClass}
+            <Combobox
               value={line.account}
-              onChange={(e) =>
-                setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, account: e.target.value } : l)))
-              }
-            >
-              <option value="">Account…</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.account_name || a.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, account: v } : l)))}
+              placeholder="Account…"
+              searchPlaceholder="Search accounts…"
+              options={accounts.map((a) => ({ value: a.id, label: a.account_name || a.name, keywords: a.name }))}
+            />
             <Input
               type="number"
               min={0}
@@ -223,20 +212,13 @@ export function ContraPage() {
                 setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, credit: Number(e.target.value), debit: 0 } : l)))
               }
             />
-            <select
-              className={selectClass}
+            <Combobox
               value={line.cost_center}
-              onChange={(e) =>
-                setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, cost_center: e.target.value } : l)))
-              }
-            >
-              <option value="">Cost center…</option>
-              {costCenters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.cost_center_name || c.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, cost_center: v } : l)))}
+              placeholder="Cost center…"
+              searchPlaceholder="Search cost centers…"
+              options={costCenters.map((c) => ({ value: c.id, label: c.cost_center_name || c.name, keywords: c.name }))}
+            />
           </div>
         ))}
         <div className="grid gap-2 sm:grid-cols-2 sm:max-w-md">

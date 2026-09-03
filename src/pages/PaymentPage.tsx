@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from "@zatgo/ui";
+import { Button, Combobox, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
-import { enqueueCreate } from "@/lib/offline";
 import {
   AdvancedPaymentFields,
   InvoiceAllocationEditor,
@@ -12,7 +11,6 @@ import {
   SplitAccountLinesEditor,
   emptyInvoiceLine,
   emptySplitLine,
-  selectClass,
   type AccountOption,
   type CostCenter,
   type InvoiceLine,
@@ -60,18 +58,15 @@ export function PaymentPage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "payment_pay",
-        method: ZatGoApi.accounting.paymentsCreatePay,
-        args: {
-          purchase_invoice: invoice.trim(),
-          amount: amount ? Number(amount) : undefined,
-          mode_of_payment: mode || undefined,
-          cost_center: costCenter || undefined,
-          project: project || undefined,
-        },
+      await callZatGoApi(ZatGoApi.accounting.paymentsCreatePay, {
+        purchase_invoice: invoice.trim(),
+        amount: amount ? Number(amount) : undefined,
+        mode_of_payment: mode || undefined,
+        cost_center: costCenter || undefined,
+        project: project || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Payment queued — syncing");
+      toast.success("Payment created");
       setInvoice("");
       setAmount("");
       setReloadToken((t) => t + 1);
@@ -96,20 +91,17 @@ export function PaymentPage() {
       .map((l) => ({ name: l.name.trim(), amount: l.amount ? Number(l.amount) : undefined }));
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "payment_pay_advance",
-        method: ZatGoApi.accounting.paymentsCreatePayAdvance,
-        args: {
-          party: advance.party,
-          amount: Number(advance.amount),
-          mode_of_payment: advance.mode || undefined,
-          reference_no: advance.reference_no || undefined,
-          invoices: invoices.length ? invoices : undefined,
-          cost_center: advance.cost_center || undefined,
-          project: advance.project || undefined,
-        },
+      await callZatGoApi(ZatGoApi.accounting.paymentsCreatePayAdvance, {
+        party: advance.party,
+        amount: Number(advance.amount),
+        mode_of_payment: advance.mode || undefined,
+        reference_no: advance.reference_no || undefined,
+        invoices: invoices.length ? invoices : undefined,
+        cost_center: advance.cost_center || undefined,
+        project: advance.project || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success(invoices.length ? "Payment queued — syncing" : "On-account payment queued — syncing");
+      toast.success(invoices.length ? "Payment created" : "On-account payment created");
       setAdvance({ party: "", amount: "", mode: "", reference_no: "", cost_center: "", project: "" });
       setAdvanceInvoices([emptyInvoiceLine()]);
       setReloadToken((t) => t + 1);
@@ -134,18 +126,15 @@ export function PaymentPage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "payment_split",
-        method: ZatGoApi.accounting.journalsCreateSplitPay,
-        args: {
-          party: split.party,
-          lines,
-          reference_no: split.reference_no || undefined,
-          remarks: split.remarks || undefined,
-          cost_center: split.cost_center || undefined,
-        },
+      await callZatGoApi(ZatGoApi.accounting.journalsCreateSplitPay, {
+        party: split.party,
+        lines,
+        reference_no: split.reference_no || undefined,
+        remarks: split.remarks || undefined,
+        cost_center: split.cost_center || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Split payment queued — syncing");
+      toast.success("Split payment created");
       setSplit({ party: "", reference_no: "", remarks: "", cost_center: "" });
       setSplitLines([emptySplitLine(), emptySplitLine()]);
     } catch (e) {
@@ -204,19 +193,13 @@ export function PaymentPage() {
             </p>
             <div className="space-y-1">
               <Label htmlFor="apparty">Supplier</Label>
-              <select
-                id="apparty"
-                className={selectClass}
+              <Combobox
                 value={advance.party}
-                onChange={(e) => setAdvance((f) => ({ ...f, party: e.target.value }))}
-              >
-                <option value="">Select…</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.supplier_name || s.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setAdvance((f) => ({ ...f, party: v }))}
+                placeholder="Select…"
+                searchPlaceholder="Search suppliers…"
+                options={suppliers.map((s) => ({ value: s.id, label: s.supplier_name || s.name }))}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="apamt">Amount</Label>
@@ -272,19 +255,13 @@ export function PaymentPage() {
             </p>
             <div className="space-y-1">
               <Label htmlFor="spparty">Supplier</Label>
-              <select
-                id="spparty"
-                className={selectClass}
+              <Combobox
                 value={split.party}
-                onChange={(e) => setSplit((f) => ({ ...f, party: e.target.value }))}
-              >
-                <option value="">Select…</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.supplier_name || s.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setSplit((f) => ({ ...f, party: v }))}
+                placeholder="Select…"
+                searchPlaceholder="Search suppliers…"
+                options={suppliers.map((s) => ({ value: s.id, label: s.supplier_name || s.name }))}
+              />
             </div>
             <SplitAccountLinesEditor accounts={accounts} lines={splitLines} onChange={setSplitLines} />
             <div className="grid gap-2 sm:grid-cols-2">

@@ -18,7 +18,6 @@ import {
 } from "@zatgo/ui";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
-import { enqueueCreate, loadCachedList } from "@/lib/offline";
 import { ListToolbar } from "@/components/ListToolbar";
 
 type Customer = {
@@ -49,12 +48,8 @@ export function CustomersPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await loadCachedList<Customer>("customers", async () => {
-        const env = await callZatGoApi<Customer[]>(ZatGoApi.accounting.customersList, { page: 1, page_size: 100 });
-        return Array.isArray(env.data) ? env.data : [];
-      });
-      setRows(result.data);
-      if (result.stale) toast.info("Showing last-known customers — offline");
+      const env = await callZatGoApi<Customer[]>(ZatGoApi.accounting.customersList, { page: 1, page_size: 100 });
+      setRows(Array.isArray(env.data) ? env.data : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load customers");
     } finally {
@@ -95,17 +90,14 @@ export function CustomersPage() {
     }
     setBusy(true);
     try {
-      await enqueueCreate({
-        entityType: "customer",
-        method: ZatGoApi.accounting.customersCreate,
-        args: {
-          customer_name: form.customer_name.trim(),
-          customer_type: form.customer_type,
-          email: form.email || undefined,
-          phone: form.phone || undefined,
-        },
+      await callZatGoApi(ZatGoApi.accounting.customersCreate, {
+        customer_name: form.customer_name.trim(),
+        customer_type: form.customer_type,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        client_id: crypto.randomUUID(),
       });
-      toast.success("Customer queued — syncing");
+      toast.success("Customer created");
       setOpen(false);
       setForm({ customer_name: "", email: "", phone: "", customer_type: "Company" });
       await load();
