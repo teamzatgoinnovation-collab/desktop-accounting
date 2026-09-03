@@ -41,9 +41,18 @@ const nav: AppShellNavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+// AppShellLayout wraps its default main content in a framer-motion fade-in
+// (see app-shell-layout.tsx) whose transform breaks `position: sticky`
+// containment. The New Voucher page needs a reliably sticky footer action
+// bar, so it opts into the layout's existing `workspace` escape hatch
+// (already used for POS-style full-bleed pages) instead — the only cost is
+// this one route skipping the page fade-in every other route gets.
+const FULL_BLEED_ROUTES = new Set(["/vouchers/new"]);
+
 export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const isFullBleed = FULL_BLEED_ROUTES.has(pathname);
   const mode = useThemeStore((s) => s.mode);
   const cycleMode = useThemeStore((s) => s.cycleMode);
   const connected = useSessionStore((s) => s.connected);
@@ -128,8 +137,15 @@ export function AppShell() {
             </Button>
           </>
         }
+        workspace={
+          isFullBleed ? (
+            <main className="flex-1 overflow-auto p-6">
+              <Outlet />
+            </main>
+          ) : undefined
+        }
       >
-        <Outlet />
+        {isFullBleed ? null : <Outlet />}
       </AppShellLayout>
     </>
   );

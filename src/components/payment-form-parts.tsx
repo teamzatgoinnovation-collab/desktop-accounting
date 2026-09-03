@@ -18,7 +18,13 @@ export type PaymentRow = {
   docstatus?: number;
 };
 
-export type AccountOption = { id: string; name: string; account_name?: string; account_type?: string };
+export type AccountOption = {
+  id: string;
+  name: string;
+  account_name?: string;
+  account_type?: string;
+  root_type?: string;
+};
 export const isCashOrBankAccountType = (type?: string) => type === "Cash" || type === "Bank";
 export type PartyOption = { id: string; name: string; customer_name?: string; supplier_name?: string };
 export type CostCenter = { id: string; name: string; cost_center_name?: string };
