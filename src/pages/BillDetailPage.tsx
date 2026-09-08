@@ -1,24 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
-import { callZatGoApi } from "@/lib/call-zatgo-api";
+import {
+  amendPurchaseInvoice,
+  cancelPurchaseInvoice,
+  getPurchaseInvoice,
+  getPurchaseInvoicePdf,
+  submitPurchaseInvoice,
+} from "@/api/erpnext/purchase";
+import { toFriendlyMessage } from "@/lib/friendly-error";
 import { money } from "@/lib/format";
 import { downloadPdfBase64 } from "@/lib/download";
+import type { PurchaseInvoice } from "@/types/accounting";
 
-type Bill = {
-  id: string;
-  name: string;
-  supplier?: string;
-  status?: string;
-  amount?: number;
-  outstanding?: number;
-  date?: string;
-  docstatus?: number;
-  is_return?: boolean;
-  items?: { item_code: string; item_name?: string; qty: number; rate: number; amount: number }[];
-};
+type Bill = PurchaseInvoice;
 
 export function BillDetailPage() {
   const { name: rawName } = useParams<{ name: string }>();
@@ -34,8 +30,8 @@ export function BillDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Bill>(ZatGoApi.accounting.purchaseInvoicesGet, { name });
-      setRow((env.data as Bill) || null);
+      const doc = await getPurchaseInvoice(name);
+      setRow(doc || null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -50,25 +46,25 @@ export function BillDetailPage() {
   const onSubmit = async () => {
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.purchaseInvoicesSubmit, { name });
+      await submitPurchaseInvoice(name);
       toast.success("Bill submitted");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Submit failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Submit failed"));
     } finally {
       setBusy(false);
     }
   };
 
   const onCancel = async () => {
-    if (!window.confirm(`Cancel bill ${row?.name}? This reverses its GL and stock impact.`)) return;
+    if (!window.confirm(`Cancel bill ${row?.name}? This reverses its GL impact.`)) return;
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.purchaseInvoicesCancel, { name });
+      await cancelPurchaseInvoice(name);
       toast.success("Bill cancelled");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Cancel failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Cancel failed"));
     } finally {
       setBusy(false);
     }
@@ -77,12 +73,11 @@ export function BillDetailPage() {
   const onAmend = async () => {
     setBusy(true);
     try {
-      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.purchaseInvoicesAmend, { name });
-      const amended = env.data?.name;
-      toast.success(`Amended as ${amended}`);
-      if (amended) navigate(`/bills/${encodeURIComponent(amended)}`);
+      const amended = await amendPurchaseInvoice(name);
+      toast.success(`Amended as ${amended.name}`);
+      if (amended.name) navigate(`/bills/${encodeURIComponent(amended.name)}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Amend failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Amend failed"));
     } finally {
       setBusy(false);
     }
@@ -91,11 +86,8 @@ export function BillDetailPage() {
   const onDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const env = await callZatGoApi<{ pdf_base64: string; filename: string }>(
-        ZatGoApi.accounting.purchaseInvoicesGetPdf,
-        { name },
-      );
-      if (env.data?.pdf_base64) downloadPdfBase64(env.data.pdf_base64, env.data.filename || `${name}.pdf`);
+      const pdf = await getPurchaseInvoicePdf(name);
+      if (pdf.pdf_base64) downloadPdfBase64(pdf.pdf_base64, pdf.filename || `${name}.pdf`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "PDF download failed");
     } finally {
@@ -124,18 +116,7 @@ export function BillDetailPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() =>
-                navigate("/bills/new", {
-                  state: {
-                    supplier: row.supplier,
-                    lines: (row.items || []).map((l) => ({
-                      item_code: l.item_code || "",
-                      qty: l.qty || 1,
-                      rate: l.rate || 0,
-                    })),
-                  },
-                })
-              }
+              onClick={() => navigate(`/bills/new?supplier=${encodeURIComponent(row.supplier || "")}`)}
             >
               Duplicate
             </Button>

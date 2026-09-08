@@ -18,9 +18,11 @@ import {
   PageHeader,
   StatCard,
 } from "@zatgo/ui";
-import { FileText, Package, Receipt, Wallet } from "@zatgo/icons";
+import { FileText, Receipt, Wallet } from "@zatgo/icons";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
+import { getSalesInvoices } from "@/api/erpnext/sales";
+import { getPurchaseInvoices } from "@/api/erpnext/purchase";
 
 type Aging = {
   bucket_0_30?: number;
@@ -76,11 +78,18 @@ function agingBars(aging: Aging | undefined, label: string) {
   ];
 }
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
-  const [warehouseCount, setWarehouseCount] = useState<number | null>(null);
+  const [todaysSales, setTodaysSales] = useState(0);
+  const [todaysPurchases, setTodaysPurchases] = useState(0);
+  const [salesPaid, setSalesPaid] = useState(0);
+  const [purchasesPaid, setPurchasesPaid] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -89,12 +98,21 @@ export function HomePage() {
       await callZatGoApi(ZatGoApi.accounting.ping).catch(() => undefined);
       const env = await callZatGoApi<DashboardData>(ZatGoApi.accounting.dashboardSummary);
       setData((env.data as DashboardData) || {});
-      try {
-        const wh = await callZatGoApi<{ count?: number }>(ZatGoApi.warehouse.status);
-        setWarehouseCount(typeof wh.data?.count === "number" ? wh.data.count : null);
-      } catch {
-        setWarehouseCount(null);
-      }
+
+      // Presentational-only sums of already-fetched ERPNext invoice data — not an independent balance calculation.
+      const today = todayIso();
+      const [sales, purchases] = await Promise.all([
+        getSalesInvoices({ page_size: 500 }).catch(() => []),
+        getPurchaseInvoices({ page_size: 500 }).catch(() => []),
+      ]);
+      setTodaysSales(sales.filter((s) => s.date === today).reduce((sum, s) => sum + Number(s.amount || 0), 0));
+      setTodaysPurchases(
+        purchases.filter((p) => p.date === today).reduce((sum, p) => sum + Number(p.amount || 0), 0),
+      );
+      setSalesPaid(sales.reduce((sum, s) => sum + (Number(s.amount || 0) - Number(s.outstanding || 0)), 0));
+      setPurchasesPaid(
+        purchases.reduce((sum, p) => sum + (Number(p.amount || 0) - Number(p.outstanding || 0)), 0),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load dashboard");
     } finally {
@@ -158,6 +176,13 @@ export function HomePage() {
         }
       />
 
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Today's sales" value={money(todaysSales)} icon={FileText} />
+        <StatCard title="Today's purchases" value={money(todaysPurchases)} icon={Receipt} />
+        <StatCard title="Sales paid" value={money(salesPaid)} icon={Wallet} />
+        <StatCard title="Purchases paid" value={money(purchasesPaid)} icon={Wallet} />
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <StatCard title="AR open" value={money(data?.ar_open)} icon={FileText} />
         <StatCard title="AP open" value={money(data?.ap_open)} icon={Receipt} />
@@ -166,12 +191,6 @@ export function HomePage() {
         <StatCard title="Sales invoices" value={String(data?.sales_invoice_count ?? 0)} icon={FileText} />
         <StatCard title="Purchase invoices" value={String(data?.purchase_invoice_count ?? 0)} icon={Receipt} />
       </div>
-
-      {warehouseCount != null ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <StatCard title="Warehouses" value={String(warehouseCount)} icon={Package} />
-        </div>
-      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-3">
         <section className="rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4 xl:col-span-1">

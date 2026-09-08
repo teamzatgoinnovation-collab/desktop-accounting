@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ZatGoApi } from "@zatgo/erpnext";
 import {
   Button,
   DataTable,
@@ -16,7 +15,11 @@ import {
   TabsTrigger,
 } from "@zatgo/ui";
 import { toast } from "sonner";
-import { callZatGoApi } from "@/lib/call-zatgo-api";
+import { getCustomer, updateCustomer } from "@/api/erpnext/customer";
+import { getSalesInvoices } from "@/api/erpnext/sales";
+import { getPaymentEntries } from "@/api/erpnext/payments";
+import { getPartyLedger } from "@/api/erpnext/reports";
+import { toFriendlyMessage } from "@/lib/friendly-error";
 import { money } from "@/lib/format";
 
 type Customer = {
@@ -71,8 +74,7 @@ export function CustomerDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Customer>(ZatGoApi.accounting.customersGet, { name });
-      const row = (env.data as Customer) || null;
+      const row = (await getCustomer(name)) as Customer | null;
       if (!row) throw new Error("Customer not found");
       setForm({
         customer_name: row.customer_name || row.name || "",
@@ -92,15 +94,11 @@ export function CustomerDetailPage() {
   const loadLedger = async () => {
     setLedgerLoading(true);
     try {
-      const env = await callZatGoApi<LedgerRow[]>(ZatGoApi.accounting.reportsPartyLedger, {
-        party_type: "Customer",
-        party: name,
-        page_size: 200,
-      });
-      setLedger(Array.isArray(env.data) ? env.data : []);
-      setLedgerMeta((env.meta as typeof ledgerMeta) || {});
+      const result = await getPartyLedger({ partyType: "Customer", party: name, pageSize: 200 });
+      setLedger(result.rows as LedgerRow[]);
+      setLedgerMeta({ opening_balance: result.openingBalance, closing_balance: result.closingBalance });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load ledger");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Failed to load ledger"));
     } finally {
       setLedgerLoading(false);
     }
@@ -108,16 +106,12 @@ export function CustomerDetailPage() {
 
   const loadHistory = async () => {
     try {
-      const [invEnv, payEnv] = await Promise.all([
-        callZatGoApi<InvoiceRow[]>(ZatGoApi.accounting.invoicesList, { customer: name, page_size: 100 }),
-        callZatGoApi<PaymentRow[]>(ZatGoApi.accounting.paymentsList, {
-          party_type: "Customer",
-          party: name,
-          page_size: 100,
-        }),
+      const [invoiceRows, paymentRows] = await Promise.all([
+        getSalesInvoices({ customer: name, page_size: 100 }),
+        getPaymentEntries({ partyType: "Customer", party: name, page_size: 100 }),
       ]);
-      setSales(Array.isArray(invEnv.data) ? invEnv.data : []);
-      setPayments(Array.isArray(payEnv.data) ? payEnv.data : []);
+      setSales(invoiceRows as InvoiceRow[]);
+      setPayments(paymentRows as PaymentRow[]);
     } catch {
       // Non-fatal — the tabs show their own empty state.
     }
@@ -132,21 +126,18 @@ export function CustomerDetailPage() {
   const onSave = async () => {
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.customersUpdate, {
-        name,
-        values: {
-          customer_name: form.customer_name,
-          customer_type: form.customer_type,
-          email: form.email || undefined,
-          phone: form.phone || undefined,
-          territory: form.territory || undefined,
-          customer_group: form.customer_group || undefined,
-        },
+      await updateCustomer(name, {
+        customer_name: form.customer_name,
+        customer_type: form.customer_type,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        territory: form.territory || undefined,
+        customer_group: form.customer_group || undefined,
       });
       toast.success("Customer updated");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Update failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Update failed"));
     } finally {
       setBusy(false);
     }
@@ -155,14 +146,11 @@ export function CustomerDetailPage() {
   const onDisable = async () => {
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.customersUpdate, {
-        name,
-        values: { disabled: 1 },
-      });
+      await updateCustomer(name, { disabled: 1 });
       toast.success("Customer disabled");
       navigate("/customers");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Disable failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Disable failed"));
     } finally {
       setBusy(false);
     }

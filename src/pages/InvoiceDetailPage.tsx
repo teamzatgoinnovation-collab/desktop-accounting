@@ -1,39 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { ZatGoApi } from "@zatgo/erpnext";
 import { Button, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
-import { callZatGoApi } from "@/lib/call-zatgo-api";
+import {
+  amendSalesInvoice,
+  cancelSalesInvoice,
+  getSalesInvoice,
+  getSalesInvoicePdf,
+  getZatcaQr,
+  submitSalesInvoice,
+} from "@/api/erpnext/sales";
+import { toFriendlyMessage } from "@/lib/friendly-error";
 import { money } from "@/lib/format";
 import { downloadPdfBase64 } from "@/lib/download";
+import type { SalesInvoice } from "@/types/accounting";
 
-type InvoiceItem = {
-  item_code?: string;
-  item_name?: string;
-  qty?: number;
-  rate?: number;
-  amount?: number;
-};
-
-type Invoice = {
-  id: string;
-  name: string;
-  customer?: string;
-  status?: string;
-  amount?: number;
-  outstanding?: number;
-  date?: string;
-  due_date?: string;
-  company?: string;
-  remarks?: string;
-  docstatus?: number;
-  total_taxes_and_charges?: number;
-  items?: InvoiceItem[];
-  zatca_qr_base64?: string;
-  is_return?: boolean;
-  return_against?: string | null;
-};
+type Invoice = SalesInvoice;
 
 type ZatcaPayload = {
   qr_base64?: string;
@@ -59,13 +42,12 @@ export function InvoiceDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Invoice>(ZatGoApi.accounting.invoicesGet, { name });
-      const row = (env.data as Invoice) || null;
+      const row = await getSalesInvoice(name);
       if (!row) throw new Error("Invoice not found");
       setInvoice(row);
       try {
-        const qrEnv = await callZatGoApi<ZatcaPayload>(ZatGoApi.accounting.invoicesGetZatcaQr, { name });
-        setZatca((qrEnv.data as ZatcaPayload) || null);
+        const qr = await getZatcaQr(name);
+        setZatca(qr || null);
       } catch {
         setZatca(row.zatca_qr_base64 ? { qr_base64: row.zatca_qr_base64 } : null);
       }
@@ -83,25 +65,25 @@ export function InvoiceDetailPage() {
   const onSubmit = async () => {
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.invoicesSubmit, { name });
+      await submitSalesInvoice(name);
       toast.success("Invoice submitted");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Submit failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Submit failed"));
     } finally {
       setBusy(false);
     }
   };
 
   const onCancel = async () => {
-    if (!window.confirm(`Cancel invoice ${invoice?.name}? This reverses its GL and stock impact.`)) return;
+    if (!window.confirm(`Cancel invoice ${invoice?.name}? This reverses its GL impact.`)) return;
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.invoicesCancel, { name });
+      await cancelSalesInvoice(name);
       toast.success("Invoice cancelled");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Cancel failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Cancel failed"));
     } finally {
       setBusy(false);
     }
@@ -110,12 +92,11 @@ export function InvoiceDetailPage() {
   const onAmend = async () => {
     setBusy(true);
     try {
-      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.invoicesAmend, { name });
-      const amended = env.data?.name;
-      toast.success(`Amended as ${amended}`);
-      if (amended) navigate(`/invoices/${encodeURIComponent(amended)}`);
+      const amended = await amendSalesInvoice(name);
+      toast.success(`Amended as ${amended.name}`);
+      if (amended.name) navigate(`/invoices/${encodeURIComponent(amended.name)}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Amend failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Amend failed"));
     } finally {
       setBusy(false);
     }
@@ -124,10 +105,8 @@ export function InvoiceDetailPage() {
   const onDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const env = await callZatGoApi<{ pdf_base64: string; filename: string }>(ZatGoApi.accounting.invoicesGetPdf, {
-        name,
-      });
-      if (env.data?.pdf_base64) downloadPdfBase64(env.data.pdf_base64, env.data.filename || `${name}.pdf`);
+      const pdf = await getSalesInvoicePdf(name);
+      if (pdf.pdf_base64) downloadPdfBase64(pdf.pdf_base64, pdf.filename || `${name}.pdf`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "PDF download failed");
     } finally {
@@ -156,18 +135,7 @@ export function InvoiceDetailPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() =>
-                navigate("/invoices/new", {
-                  state: {
-                    customer: invoice.customer,
-                    lines: (invoice.items || []).map((l) => ({
-                      item_code: l.item_code || "",
-                      qty: l.qty || 1,
-                      rate: l.rate || 0,
-                    })),
-                  },
-                })
-              }
+              onClick={() => navigate(`/invoices/new?customer=${encodeURIComponent(invoice.customer || "")}`)}
             >
               Duplicate
             </Button>

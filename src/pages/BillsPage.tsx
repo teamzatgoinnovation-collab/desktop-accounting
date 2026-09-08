@@ -1,39 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, DataTable, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
-import { callZatGoApi } from "@/lib/call-zatgo-api";
+import { Button, Combobox, DataTable, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
+import { getPurchaseInvoices } from "@/api/erpnext/purchase";
+import { getSuppliers } from "@/api/erpnext/supplier";
 import { money } from "@/lib/format";
 import { ListToolbar } from "@/components/ListToolbar";
+import type { Party, PurchaseInvoice } from "@/types/accounting";
 
-type Bill = {
-  id: string;
-  name: string;
-  supplier?: string;
-  status?: string;
-  amount?: number;
-  outstanding?: number;
-  date?: string;
-};
+type Bill = PurchaseInvoice;
 
 export function BillsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Bill[]>([]);
+  const [suppliers, setSuppliers] = useState<Party[]>([]);
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [party, setParty] = useState("");
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Bill[]>(ZatGoApi.accounting.purchaseInvoicesList, {
-        page: 1,
-        page_size: 100,
-      });
-      setRows(Array.isArray(env.data) ? env.data : []);
+      const [billRows, supplierRows] = await Promise.all([getPurchaseInvoices(), getSuppliers()]);
+      setRows(billRows);
+      setSuppliers(supplierRows);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load bills");
     } finally {
@@ -81,11 +74,12 @@ export function BillsPage() {
         const haystack = `${r.name} ${r.supplier ?? ""} ${r.status ?? ""}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
+      if (party && r.supplier !== party) return false;
       if (fromDate && (!r.date || r.date < fromDate)) return false;
       if (toDate && (!r.date || r.date > toDate)) return false;
       return true;
     });
-  }, [rows, search, fromDate, toDate]);
+  }, [rows, search, fromDate, toDate, party]);
 
   if (loading) return <LoadingState label="Loading bills…" />;
   if (error) return <ErrorState title="Bills unavailable" description={error} onRetry={() => void load()} />;
@@ -109,7 +103,18 @@ export function BillsPage() {
         onFromDateChange={setFromDate}
         toDate={toDate}
         onToDateChange={setToDate}
-      />
+      >
+        <div className="min-w-[200px] space-y-1">
+          <label className="text-sm font-medium text-[var(--color-foreground)]">Supplier</label>
+          <Combobox
+            value={party}
+            onValueChange={setParty}
+            placeholder="All suppliers"
+            searchPlaceholder="Search suppliers…"
+            options={[{ value: "", label: "All suppliers" }, ...suppliers.map((s) => ({ value: s.id, label: s.name }))]}
+          />
+        </div>
+      </ListToolbar>
       <DataTable data={filteredRows} columns={columns} emptyMessage="No bills match." pageSize={15} />
     </div>
   );

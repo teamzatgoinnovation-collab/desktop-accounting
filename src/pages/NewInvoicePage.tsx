@@ -1,45 +1,46 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ZatGoApi } from "@zatgo/erpnext";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Combobox, Input, Label, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
+import { getCustomers } from "@/api/erpnext/customer";
+import { createSalesEntry, getSalesServiceItemDefaults } from "@/api/erpnext/sales";
+import { toFriendlyMessage } from "@/lib/friendly-error";
+import { money } from "@/lib/format";
+import type { CostCenter, Party, SalesInvoice } from "@/types/accounting";
+import { ZatGoApi } from "@zatgo/erpnext";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 
-type Party = { id: string; name: string };
-type Item = { id: string; name: string; item_code?: string; rate?: number };
-type Line = { item_code: string; qty: number; rate: number };
-type CostCenter = { id: string; name: string; cost_center_name?: string };
-
-type DuplicateState = { customer?: string; lines?: Line[] };
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function NewInvoicePage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [search] = useSearchParams();
-  const duplicateFrom = (location.state as DuplicateState | null) || null;
   const [customers, setCustomers] = useState<Party[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [customer, setCustomer] = useState(duplicateFrom?.customer || search.get("customer") || "");
-  const [lines, setLines] = useState<Line[]>(
-    duplicateFrom?.lines?.length ? duplicateFrom.lines : [{ item_code: "", qty: 1, rate: 0 }],
-  );
+  const [incomeAccount, setIncomeAccount] = useState<string | null>(null);
+
+  const [customer, setCustomer] = useState(search.get("customer") || "");
+  const [postingDate, setPostingDate] = useState(today());
+  const [amount, setAmount] = useState("");
   const [costCenter, setCostCenter] = useState("");
-  const [project, setProject] = useState("");
+  const [remarks, setRemarks] = useState("");
   const [showMore, setShowMore] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<SalesInvoice | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const [c, i, cc] = await Promise.all([
-          callZatGoApi<Party[]>(ZatGoApi.accounting.customersList, { page: 1, page_size: 100 }),
-          callZatGoApi<Item[]>(ZatGoApi.accounting.invoicesListItems, { page: 1, page_size: 100 }),
+        const [customerRows, costCenterEnv, itemDefaults] = await Promise.all([
+          getCustomers(),
           callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, { page: 1, page_size: 100 }),
+          getSalesServiceItemDefaults(),
         ]);
-        setCustomers(Array.isArray(c.data) ? c.data : []);
-        setItems(Array.isArray(i.data) ? i.data : []);
-        setCostCenters(Array.isArray(cc.data) ? cc.data : []);
+        setCustomers(customerRows);
+        setCostCenters(Array.isArray(costCenterEnv.data) ? costCenterEnv.data : []);
+        setIncomeAccount(itemDefaults.incomeAccount);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to load form data");
       }
@@ -51,35 +52,100 @@ export function NewInvoicePage() {
       toast.error("Pick a customer");
       return;
     }
-    const valid = lines.filter((l) => l.item_code && l.qty > 0);
-    if (!valid.length) {
-      toast.error("Add at least one item");
+    const numericAmount = Number(amount);
+    if (!amount || !(numericAmount > 0)) {
+      toast.error("Enter an amount greater than zero");
+      return;
+    }
+    if (!postingDate) {
+      toast.error("Pick a date");
       return;
     }
     setBusy(true);
     try {
-      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.invoicesCreate, {
+      const invoice = await createSalesEntry({
         customer,
-        items: valid,
-        cost_center: costCenter || undefined,
-        project: project || undefined,
-        client_id: crypto.randomUUID(),
+        amount: numericAmount,
+        postingDate,
+        costCenter: costCenter || undefined,
+        remarks: remarks || undefined,
+        clientId: crypto.randomUUID(),
       });
-      const createdName = env.data?.name;
-      toast.success(createdName ? `Invoice ${createdName} created` : "Invoice created");
-      navigate(createdName ? `/invoices/${encodeURIComponent(createdName)}` : "/invoices", { replace: true });
+      setCreated(invoice);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Create failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Create failed"));
     } finally {
       setBusy(false);
     }
   };
 
+  const resetForm = () => {
+    setCreated(null);
+    setCustomer("");
+    setPostingDate(today());
+    setAmount("");
+    setCostCenter("");
+    setRemarks("");
+  };
+
+  if (created) {
+    const customerLabel = customers.find((c) => c.id === created.customer)?.name || created.customer || customer;
+    const outstanding = created.outstanding ?? Number(amount);
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Sale created" description="ERPNext posted the accounting entry." />
+        <div className="max-w-md space-y-4 rounded-[var(--radius-lg)] border border-[var(--color-border)] p-6">
+          <div className="space-y-1">
+            <p className="text-sm text-[var(--color-muted-foreground)]">Customer</p>
+            <p className="text-lg font-medium">{customerLabel}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm text-[var(--color-muted-foreground)]">Amount</p>
+            <p className="text-lg font-medium tabular-nums">{money(created.amount ?? Number(amount))}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm text-[var(--color-muted-foreground)]">Invoice</p>
+            <p className="text-lg font-medium">{created.name}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-[var(--color-muted-foreground)]">Status</p>
+              <p className="font-medium">{outstanding > 0 ? "Unpaid" : "Paid"}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-[var(--color-muted-foreground)]">Outstanding</p>
+              <p className="font-medium tabular-nums">{money(outstanding)}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-2">
+            {outstanding > 0 ? (
+              <Button
+                onClick={() =>
+                  navigate(
+                    `/receipt?invoice=${encodeURIComponent(created.name)}&amount=${encodeURIComponent(String(outstanding))}`,
+                  )
+                }
+              >
+                Receive payment
+              </Button>
+            ) : null}
+            <Button variant="outline" asChild>
+              <Link to={`/invoices/${encodeURIComponent(created.name)}`}>View invoice</Link>
+            </Button>
+            <Button variant="outline" onClick={resetForm}>
+              New sale
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="New invoice"
-        description="Create a draft sales invoice, then submit when ready."
+        title="New sale"
+        description="Record a sale — ERPNext generates the invoice and accounting entries."
         actions={
           <Button variant="outline" asChild>
             <Link to="/invoices">Cancel</Link>
@@ -87,69 +153,47 @@ export function NewInvoicePage() {
         }
       />
 
-      <div className="max-w-xl space-y-2">
-        <Label htmlFor="customer">Customer</Label>
-        <Combobox
-          value={customer}
-          onValueChange={setCustomer}
-          placeholder="Select…"
-          searchPlaceholder="Search customers…"
-          options={customers.map((c) => ({ value: c.id, label: c.name }))}
-        />
-      </div>
+      <div className="max-w-xl space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="customer">Customer</Label>
+          <Combobox
+            value={customer}
+            onValueChange={setCustomer}
+            placeholder="Select…"
+            searchPlaceholder="Search customers…"
+            options={customers.map((c) => ({ value: c.id, label: c.name }))}
+          />
+        </div>
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-medium">Lines</h2>
-        {lines.map((line, idx) => (
-          <div key={idx} className="grid gap-2 sm:grid-cols-4">
-            <div className="sm:col-span-2">
-              <Combobox
-                value={line.item_code}
-                onValueChange={(code) => {
-                  const item = items.find((i) => (i.item_code || i.id) === code);
-                  setLines((prev) =>
-                    prev.map((l, i) =>
-                      i === idx ? { ...l, item_code: code, rate: Number(item?.rate || l.rate || 0) } : l,
-                    ),
-                  );
-                }}
-                placeholder="Item…"
-                searchPlaceholder="Search items…"
-                options={items.map((it) => ({ value: it.item_code || it.id, label: it.name }))}
-              />
-            </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="date">Date</Label>
+            <Input id="date" type="date" value={postingDate} onChange={(e) => setPostingDate(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount</Label>
             <Input
+              id="amount"
               type="number"
               min={0}
               step="any"
-              value={line.qty}
-              onChange={(e) =>
-                setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, qty: Number(e.target.value) } : l)))
-              }
-            />
-            <Input
-              type="number"
-              min={0}
-              step="any"
-              value={line.rate}
-              onChange={(e) =>
-                setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, rate: Number(e.target.value) } : l)))
-              }
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
             />
           </div>
-        ))}
-        <Button
-          variant="outline"
-          onClick={() => setLines((prev) => [...prev, { item_code: "", qty: 1, rate: 0 }])}
-        >
-          Add line
-        </Button>
-      </div>
+        </div>
 
-      <div className="max-w-xl space-y-3">
+        <div className="space-y-1">
+          <Label>Income account</Label>
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            {incomeAccount || "Configured default (loading…)"}
+          </p>
+        </div>
+
         {showMore ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <Label htmlFor="cc">Cost center (optional)</Label>
               <Combobox
                 value={costCenter}
@@ -159,9 +203,9 @@ export function NewInvoicePage() {
                 options={costCenters.map((c) => ({ value: c.id, label: c.cost_center_name || c.name }))}
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="proj">Project (optional)</Label>
-              <Input id="proj" value={project} onChange={(e) => setProject(e.target.value)} />
+            <div className="space-y-2">
+              <Label htmlFor="remarks">Remarks (optional)</Label>
+              <Input id="remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
             </div>
           </div>
         ) : null}
@@ -172,10 +216,15 @@ export function NewInvoicePage() {
         >
           {showMore ? "Show less details" : "Show more details"}
         </button>
+
+        <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-4">
+          <span className="text-sm text-[var(--color-muted-foreground)]">Total</span>
+          <span className="text-lg font-semibold tabular-nums">{money(Number(amount) || 0)}</span>
+        </div>
       </div>
 
       <Button disabled={busy} onClick={() => void onSave()}>
-        Save draft
+        Save sale
       </Button>
     </div>
   );
