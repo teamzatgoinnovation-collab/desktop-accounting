@@ -1,37 +1,34 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  ErrorState,
+  Input,
+  Label,
+  LoadingState,
+  PageHeader,
+  Textarea,
+} from "@zatgo/ui";
 import { toast } from "sonner";
-import { callZatGoApi } from "@/lib/call-zatgo-api";
+import {
+  amendQuotation,
+  cancelQuotation,
+  convertQuotationToInvoice,
+  deleteQuotation,
+  getQuotation,
+  getQuotationPdf,
+  submitQuotation,
+  updateQuotation,
+  type Quotation,
+} from "@/api/erpnext/quotations";
+import { toFriendlyMessage } from "@/lib/friendly-error";
 import { money } from "@/lib/format";
 import { downloadPdfBase64 } from "@/lib/download";
-
-type QuotationItem = {
-  item_code?: string;
-  item_name?: string;
-  description?: string;
-  qty?: number;
-  rate?: number;
-  amount?: number;
-  billing_type?: string;
-};
-
-type Quotation = {
-  id: string;
-  name: string;
-  customer?: string;
-  customer_id?: string;
-  status?: string;
-  amount?: number;
-  date?: string;
-  valid_till?: string;
-  currency?: string;
-  docstatus?: number;
-  company?: string;
-  terms?: string;
-  items?: QuotationItem[];
-};
 
 export function QuotationDetailPage() {
   const { name: rawName } = useParams<{ name: string }>();
@@ -43,12 +40,14 @@ export function QuotationDetailPage() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [row, setRow] = useState<Quotation | null>(null);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ validTill: "", terms: "" });
+
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Quotation>(ZatGoApi.accounting.quotationsGet, { name });
-      const data = (env.data as Quotation) || null;
+      const data = await getQuotation(name);
       if (!data) throw new Error("Quotation not found");
       setRow(data);
     } catch (e) {
@@ -65,11 +64,11 @@ export function QuotationDetailPage() {
   const onSubmit = async () => {
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.quotationsSubmit, { name });
+      await submitQuotation(name);
       toast.success("Quotation submitted");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Submit failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Submit failed"));
     } finally {
       setBusy(false);
     }
@@ -79,11 +78,11 @@ export function QuotationDetailPage() {
     if (!window.confirm(`Cancel quotation ${row?.name}?`)) return;
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.quotationsCancel, { name });
+      await cancelQuotation(name);
       toast.success("Quotation cancelled");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Cancel failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Cancel failed"));
     } finally {
       setBusy(false);
     }
@@ -92,12 +91,11 @@ export function QuotationDetailPage() {
   const onAmend = async () => {
     setBusy(true);
     try {
-      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.quotationsAmend, { name });
-      const amended = env.data?.name;
-      toast.success(`Amended as ${amended}`);
-      if (amended) navigate(`/quotations/${encodeURIComponent(amended)}`);
+      const amended = await amendQuotation(name);
+      toast.success(`Amended as ${amended.name}`);
+      if (amended.name) navigate(`/quotations/${encodeURIComponent(amended.name)}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Amend failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Amend failed"));
     } finally {
       setBusy(false);
     }
@@ -106,12 +104,11 @@ export function QuotationDetailPage() {
   const onConvert = async () => {
     setBusy(true);
     try {
-      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.quotationsConvertToInvoice, { name });
-      const invoiceName = env.data?.name;
-      toast.success(`Created invoice ${invoiceName}`);
-      if (invoiceName) navigate(`/invoices/${encodeURIComponent(invoiceName)}`);
+      const converted = await convertQuotationToInvoice(name);
+      toast.success(`Created invoice ${converted.name}`);
+      if (converted.name) navigate(`/invoices/${encodeURIComponent(converted.name)}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Convert failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Convert failed"));
     } finally {
       setBusy(false);
     }
@@ -120,14 +117,46 @@ export function QuotationDetailPage() {
   const onDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const env = await callZatGoApi<{ pdf_base64: string; filename: string }>(ZatGoApi.accounting.quotationsGetPdf, {
-        name,
-      });
-      if (env.data?.pdf_base64) downloadPdfBase64(env.data.pdf_base64, env.data.filename || `${name}.pdf`);
+      const pdf = await getQuotationPdf(name);
+      if (pdf.pdf_base64) downloadPdfBase64(pdf.pdf_base64, pdf.filename || `${name}.pdf`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "PDF download failed");
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const openEdit = () => {
+    if (!row) return;
+    setEditForm({ validTill: row.valid_till || "", terms: row.terms || "" });
+    setEditOpen(true);
+  };
+
+  const onSaveEdit = async () => {
+    setBusy(true);
+    try {
+      await updateQuotation(name, { validTill: editForm.validTill || undefined, terms: editForm.terms || undefined });
+      toast.success("Quotation updated");
+      setEditOpen(false);
+      await load();
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Update failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!window.confirm(`Delete quotation ${row?.name}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await deleteQuotation(name);
+      toast.success("Quotation deleted");
+      navigate("/quotations");
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Delete failed"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -158,6 +187,16 @@ export function QuotationDetailPage() {
             >
               Duplicate
             </Button>
+            {row.docstatus === 0 ? (
+              <Button variant="outline" onClick={openEdit}>
+                Edit
+              </Button>
+            ) : null}
+            {row.docstatus === 0 ? (
+              <Button variant="outline" disabled={busy} onClick={() => void onDelete()}>
+                Delete
+              </Button>
+            ) : null}
             {row.docstatus === 0 ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
                 Submit
@@ -244,6 +283,45 @@ export function QuotationDetailPage() {
           </p>
         </section>
       ) : null}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {row.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="qvalidtill">Valid until</Label>
+              <Input
+                id="qvalidtill"
+                type="date"
+                value={editForm.validTill}
+                onChange={(e) => setEditForm((f) => ({ ...f, validTill: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="qterms">Terms &amp; payment</Label>
+              <Textarea
+                id="qterms"
+                rows={4}
+                value={editForm.terms}
+                onChange={(e) => setEditForm((f) => ({ ...f, terms: e.target.value }))}
+              />
+            </div>
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              Line items can't be edited here — delete this draft and create a new one to change items.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void onSaveEdit()}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import {
   TabsTrigger,
 } from "@zatgo/ui";
 import { toast } from "sonner";
-import { getSupplier, updateSupplier } from "@/api/erpnext/supplier";
+import { deleteSupplier, getSupplier, updateSupplier } from "@/api/erpnext/supplier";
 import { getPurchaseInvoices } from "@/api/erpnext/purchase";
 import { getPaymentEntries } from "@/api/erpnext/payments";
 import { getPartyLedger } from "@/api/erpnext/reports";
@@ -152,6 +152,20 @@ export function SupplierDetailPage() {
     }
   };
 
+  const onDelete = async () => {
+    if (!window.confirm(`Delete supplier ${form.supplier_name || name}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await deleteSupplier(name);
+      toast.success("Supplier deleted");
+      navigate("/suppliers");
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Delete failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const ledgerColumns = useMemo<ColumnDef<LedgerRow>[]>(
     () => [
       { header: "Date", accessorKey: "date" },
@@ -206,6 +220,9 @@ export function SupplierDetailPage() {
             </Button>
             <Button variant="outline" disabled={busy} onClick={() => void onDisable()}>
               Disable
+            </Button>
+            <Button variant="outline" disabled={busy} onClick={() => void onDelete()}>
+              Delete
             </Button>
             <Button asChild variant="outline">
               <Link to={`/bills/new?supplier=${encodeURIComponent(name)}`}>New bill</Link>

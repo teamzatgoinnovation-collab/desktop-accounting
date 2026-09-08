@@ -20,6 +20,7 @@ import { ChevronDown, ChevronRight, Plus } from "@zatgo/icons";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
 import { money } from "@/lib/format";
+import { toFriendlyMessage } from "@/lib/friendly-error";
 
 type Account = {
   id: string;
@@ -144,6 +145,7 @@ export function ChartOfAccountsPage() {
   const [balanceLoading, setBalanceLoading] = useState(false);
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     account_name: "",
@@ -221,12 +223,25 @@ export function ChartOfAccountsPage() {
   };
 
   const openCreate = (parentAccount?: Account) => {
+    setEditingId(null);
     setForm({
       account_name: "",
       parent_account: parentAccount?.id || "",
       account_type: "",
       is_group: false,
       account_number: "",
+    });
+    setOpen(true);
+  };
+
+  const openEdit = (account: Account) => {
+    setEditingId(account.id);
+    setForm({
+      account_name: account.account_name,
+      parent_account: account.parent_account || "",
+      account_type: account.account_type || "",
+      is_group: Boolean(account.is_group),
+      account_number: account.account_number || "",
     });
     setOpen(true);
   };
@@ -259,26 +274,55 @@ export function ChartOfAccountsPage() {
     }
   };
 
-  const onCreate = async () => {
+  const onSave = async () => {
     if (!form.account_name.trim() || !form.parent_account) {
       toast.error("Account name and parent account are required");
       return;
     }
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.accountsCreate, {
-        account_name: form.account_name.trim(),
-        parent_account: form.parent_account,
-        account_type: form.account_type || undefined,
-        is_group: form.is_group ? 1 : 0,
-        account_number: form.account_number || undefined,
-      });
-      toast.success("Account created");
+      if (editingId) {
+        await callZatGoApi(ZatGoApi.accounting.accountsUpdate, {
+          name: editingId,
+          values: {
+            account_name: form.account_name.trim(),
+            account_type: form.account_type || undefined,
+            account_number: form.account_number || undefined,
+          },
+        });
+        toast.success("Account updated");
+      } else {
+        await callZatGoApi(ZatGoApi.accounting.accountsCreate, {
+          account_name: form.account_name.trim(),
+          parent_account: form.parent_account,
+          account_type: form.account_type || undefined,
+          is_group: form.is_group ? 1 : 0,
+          account_number: form.account_number || undefined,
+        });
+        toast.success("Account created");
+      }
       setOpen(false);
+      setEditingId(null);
       setForm({ account_name: "", parent_account: "", account_type: "", is_group: false, account_number: "" });
+      setSelected(null);
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Create failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Save failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDelete = async (account: Account) => {
+    if (!window.confirm(`Delete account ${account.account_name}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await callZatGoApi(ZatGoApi.accounting.accountsDelete, { name: account.id });
+      toast.success("Account deleted");
+      setSelected(null);
+      await load();
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Delete failed"));
     } finally {
       setBusy(false);
     }
@@ -374,6 +418,12 @@ export function ChartOfAccountsPage() {
                 <Button variant="outline" size="sm" onClick={() => void onToggleDisabled(selected)}>
                   {selected.disabled ? "Enable account" : "Disable account"}
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => openEdit(selected)}>
+                  Edit
+                </Button>
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => void onDelete(selected)}>
+                  Delete
+                </Button>
               </div>
             </>
           )}
@@ -383,7 +433,7 @@ export function ChartOfAccountsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New account</DialogTitle>
+            <DialogTitle>{editingId ? `Edit ${editingId}` : "New account"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
@@ -397,6 +447,7 @@ export function ChartOfAccountsPage() {
                 onValueChange={(v) => setForm((f) => ({ ...f, parent_account: v }))}
                 placeholder="Select…"
                 searchPlaceholder="Search accounts…"
+                disabled={Boolean(editingId)}
                 options={groupAccounts.map((a) => ({ value: a.id, label: `${a.account_name} (${a.root_type})`, keywords: a.id }))}
               />
             </div>
@@ -417,14 +468,19 @@ export function ChartOfAccountsPage() {
                   On = a parent other accounts nest under. Off = a postable ledger account.
                 </p>
               </div>
-              <Switch id="acisgroup" checked={form.is_group} onCheckedChange={(v) => setForm((f) => ({ ...f, is_group: v }))} />
+              <Switch
+                id="acisgroup"
+                checked={form.is_group}
+                disabled={Boolean(editingId)}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, is_group: v }))}
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button disabled={busy} onClick={() => void onCreate()}>
+            <Button disabled={busy} onClick={() => void onSave()}>
               Save
             </Button>
           </DialogFooter>

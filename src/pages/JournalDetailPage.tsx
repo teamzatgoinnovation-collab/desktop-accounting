@@ -1,32 +1,32 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, ErrorState, LoadingState, PageHeader } from "@zatgo/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  ErrorState,
+  Input,
+  Label,
+  LoadingState,
+  PageHeader,
+} from "@zatgo/ui";
 import { toast } from "sonner";
-import { callZatGoApi } from "@/lib/call-zatgo-api";
+import {
+  amendJournalEntry,
+  cancelJournalEntry,
+  deleteJournalEntry,
+  getJournalEntry,
+  getJournalEntryPdf,
+  submitJournalEntry,
+  updateJournalEntry,
+  type Journal,
+} from "@/api/erpnext/journals";
+import { toFriendlyMessage } from "@/lib/friendly-error";
 import { money } from "@/lib/format";
 import { downloadPdfBase64 } from "@/lib/download";
-
-type Journal = {
-  id: string;
-  name: string;
-  title?: string;
-  status?: string;
-  date?: string;
-  docstatus?: number;
-  company?: string;
-  user_remark?: string;
-  reference_no?: string;
-  reference_date?: string;
-  accounts?: {
-    account: string;
-    debit: number;
-    credit: number;
-    cost_center?: string;
-    party_type?: string;
-    party?: string;
-  }[];
-};
 
 export function JournalDetailPage() {
   const { name: rawName } = useParams<{ name: string }>();
@@ -38,12 +38,15 @@ export function JournalDetailPage() {
   const [row, setRow] = useState<Journal | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ userRemark: "", referenceNo: "" });
+
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const env = await callZatGoApi<Journal>(ZatGoApi.accounting.journalsGet, { name });
-      setRow((env.data as Journal) || null);
+      const data = await getJournalEntry(name);
+      setRow(data || null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -58,11 +61,11 @@ export function JournalDetailPage() {
   const onSubmit = async () => {
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.journalsSubmit, { name });
+      await submitJournalEntry(name);
       toast.success("Journal submitted");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Submit failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Submit failed"));
     } finally {
       setBusy(false);
     }
@@ -72,11 +75,11 @@ export function JournalDetailPage() {
     if (!window.confirm(`Cancel journal ${row?.name}? This reverses its GL impact.`)) return;
     setBusy(true);
     try {
-      await callZatGoApi(ZatGoApi.accounting.journalsCancel, { name });
+      await cancelJournalEntry(name);
       toast.success("Journal cancelled");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Cancel failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Cancel failed"));
     } finally {
       setBusy(false);
     }
@@ -85,12 +88,11 @@ export function JournalDetailPage() {
   const onAmend = async () => {
     setBusy(true);
     try {
-      const env = await callZatGoApi<{ name: string }>(ZatGoApi.accounting.journalsAmend, { name });
-      const amended = env.data?.name;
-      toast.success(`Amended as ${amended}`);
-      if (amended) navigate(`/journals/${encodeURIComponent(amended)}`);
+      const amended = await amendJournalEntry(name);
+      toast.success(`Amended as ${amended.name}`);
+      if (amended.name) navigate(`/journals/${encodeURIComponent(amended.name)}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Amend failed");
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Amend failed"));
     } finally {
       setBusy(false);
     }
@@ -99,14 +101,49 @@ export function JournalDetailPage() {
   const onDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const env = await callZatGoApi<{ pdf_base64: string; filename: string }>(ZatGoApi.accounting.journalsGetPdf, {
-        name,
-      });
-      if (env.data?.pdf_base64) downloadPdfBase64(env.data.pdf_base64, env.data.filename || `${name}.pdf`);
+      const pdf = await getJournalEntryPdf(name);
+      if (pdf.pdf_base64) downloadPdfBase64(pdf.pdf_base64, pdf.filename || `${name}.pdf`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "PDF download failed");
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const openEdit = () => {
+    if (!row) return;
+    setEditForm({ userRemark: row.user_remark || "", referenceNo: row.reference_no || "" });
+    setEditOpen(true);
+  };
+
+  const onSaveEdit = async () => {
+    setBusy(true);
+    try {
+      await updateJournalEntry(name, {
+        userRemark: editForm.userRemark || undefined,
+        referenceNo: editForm.referenceNo || undefined,
+      });
+      toast.success("Journal updated");
+      setEditOpen(false);
+      await load();
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Update failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!window.confirm(`Delete journal ${row?.name}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await deleteJournalEntry(name);
+      toast.success("Journal deleted");
+      navigate("/journals");
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Delete failed"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -146,6 +183,16 @@ export function JournalDetailPage() {
             >
               Duplicate
             </Button>
+            {row.docstatus === 0 ? (
+              <Button variant="outline" onClick={openEdit}>
+                Edit
+              </Button>
+            ) : null}
+            {row.docstatus === 0 ? (
+              <Button variant="outline" disabled={busy} onClick={() => void onDelete()}>
+                Delete
+              </Button>
+            ) : null}
             {row.docstatus === 0 ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
                 Submit
@@ -208,6 +255,43 @@ export function JournalDetailPage() {
           </tbody>
         </table>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {row.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="jremark">Note</Label>
+              <Input
+                id="jremark"
+                value={editForm.userRemark}
+                onChange={(e) => setEditForm((f) => ({ ...f, userRemark: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="jref">Reference no.</Label>
+              <Input
+                id="jref"
+                value={editForm.referenceNo}
+                onChange={(e) => setEditForm((f) => ({ ...f, referenceNo: e.target.value }))}
+              />
+            </div>
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              Account lines can't be edited here — delete this draft and create a new one to change them.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void onSaveEdit()}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

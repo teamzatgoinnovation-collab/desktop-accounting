@@ -1,9 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { ZatGoApi } from "@zatgo/erpnext";
-import { Button, Combobox, DataTable, ErrorState, Input, Label, LoadingState } from "@zatgo/ui";
+import {
+  Button,
+  Combobox,
+  DataTable,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  ErrorState,
+  Input,
+  Label,
+  LoadingState,
+} from "@zatgo/ui";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { callZatGoApi } from "@/lib/call-zatgo-api";
+import { deletePaymentEntry, updatePaymentEntry } from "@/api/erpnext/payments";
+import { toFriendlyMessage } from "@/lib/friendly-error";
 import { money } from "@/lib/format";
 import { ListToolbar } from "@/components/ListToolbar";
 
@@ -195,6 +210,11 @@ export function PaymentsListSection({
   const [listSearch, setListSearch] = useState("");
   const [listFromDate, setListFromDate] = useState("");
   const [listToDate, setListToDate] = useState("");
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+
+  const [editing, setEditing] = useState<PaymentRow | null>(null);
+  const [editForm, setEditForm] = useState({ modeOfPayment: "", referenceNo: "", costCenter: "", project: "" });
+  const [busy, setBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -214,6 +234,20 @@ export function PaymentsListSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadToken]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const env = await callZatGoApi<CostCenter[]>(ZatGoApi.accounting.journalsListCostCenters, {
+          page: 1,
+          page_size: 100,
+        });
+        setCostCenters(Array.isArray(env.data) ? env.data : []);
+      } catch {
+        // Non-fatal — the edit dialog's cost center field just stays empty.
+      }
+    })();
+  }, []);
+
   const onSubmit = async (name: string) => {
     try {
       await callZatGoApi(ZatGoApi.accounting.paymentsSubmit, { name });
@@ -232,6 +266,42 @@ export function PaymentsListSection({
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Cancel failed");
+    }
+  };
+
+  const openEdit = (row: PaymentRow) => {
+    setEditing(row);
+    setEditForm({ modeOfPayment: "", referenceNo: "", costCenter: "", project: "" });
+  };
+
+  const onSaveEdit = async () => {
+    if (!editing) return;
+    setBusy(true);
+    try {
+      await updatePaymentEntry(editing.name, {
+        modeOfPayment: editForm.modeOfPayment || undefined,
+        referenceNo: editForm.referenceNo || undefined,
+        costCenter: editForm.costCenter || undefined,
+        project: editForm.project || undefined,
+      });
+      toast.success("Payment updated");
+      setEditing(null);
+      await load();
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Update failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDelete = async (name: string) => {
+    if (!window.confirm(`Delete payment ${name}? This can't be undone.`)) return;
+    try {
+      await deletePaymentEntry(name);
+      toast.success("Payment deleted");
+      await load();
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Delete failed"));
     }
   };
 
@@ -267,9 +337,17 @@ export function PaymentsListSection({
         id: "actions",
         cell: ({ row }) =>
           row.original.docstatus === 0 ? (
-            <Button size="sm" variant="outline" onClick={() => void onSubmit(row.original.name)}>
-              Submit
-            </Button>
+            <div className="flex flex-wrap gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => openEdit(row.original)}>
+                Edit
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void onDelete(row.original.name)}>
+                Delete
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void onSubmit(row.original.name)}>
+                Submit
+              </Button>
+            </div>
           ) : row.original.docstatus === 1 ? (
             <Button size="sm" variant="outline" onClick={() => void onCancel(row.original.name)}>
               Cancel
@@ -277,6 +355,7 @@ export function PaymentsListSection({
           ) : null,
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -295,6 +374,62 @@ export function PaymentsListSection({
         onToDateChange={setListToDate}
       />
       <DataTable data={filteredRows} columns={columns} emptyMessage="No entries match." pageSize={15} />
+
+      <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {editing?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="pemop">Mode of payment (optional)</Label>
+              <Input
+                id="pemop"
+                value={editForm.modeOfPayment}
+                onChange={(e) => setEditForm((f) => ({ ...f, modeOfPayment: e.target.value }))}
+                placeholder="Cash / Bank…"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="peref">Reference no. (optional)</Label>
+              <Input
+                id="peref"
+                value={editForm.referenceNo}
+                onChange={(e) => setEditForm((f) => ({ ...f, referenceNo: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pecc">Cost center (optional)</Label>
+              <Combobox
+                value={editForm.costCenter}
+                onValueChange={(v) => setEditForm((f) => ({ ...f, costCenter: v }))}
+                placeholder="Select…"
+                searchPlaceholder="Search cost centers…"
+                options={costCenters.map((c) => ({ value: c.id, label: c.cost_center_name || c.name }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="peproj">Project (optional)</Label>
+              <Input
+                id="peproj"
+                value={editForm.project}
+                onChange={(e) => setEditForm((f) => ({ ...f, project: e.target.value }))}
+              />
+            </div>
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              Amount and party can't be edited here — delete this draft and create a new one to change those.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void onSaveEdit()}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   amendSalesInvoice,
   cancelSalesInvoice,
+  deleteSalesInvoice,
   getSalesInvoice,
   getSalesInvoicePdf,
   getZatcaQr,
@@ -89,6 +90,20 @@ export function InvoiceDetailPage() {
     }
   };
 
+  const onDelete = async () => {
+    if (!window.confirm(`Delete invoice ${invoice?.name}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await deleteSalesInvoice(name);
+      toast.success("Invoice deleted");
+      navigate("/invoices");
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Delete failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onAmend = async () => {
     setBusy(true);
     try {
@@ -139,6 +154,16 @@ export function InvoiceDetailPage() {
             >
               Duplicate
             </Button>
+            {invoice.docstatus === 0 ? (
+              <Button variant="outline" asChild>
+                <Link to={`/invoices/${encodeURIComponent(invoice.name)}/edit`}>Edit</Link>
+              </Button>
+            ) : null}
+            {invoice.docstatus === 0 ? (
+              <Button variant="outline" disabled={busy} onClick={() => void onDelete()}>
+                Delete
+              </Button>
+            ) : null}
             {invoice.docstatus === 0 ? (
               <Button disabled={busy} onClick={() => void onSubmit()}>
                 Submit

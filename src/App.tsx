@@ -62,12 +62,14 @@ function AppRoutes() {
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="invoices/new" element={<NewInvoicePage />} />
         <Route path="invoices/:name" element={<InvoiceDetailPage />} />
+        <Route path="invoices/:name/edit" element={<NewInvoicePage />} />
         <Route path="invoices/:name/return" element={<NewSalesReturnPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />
         <Route path="suppliers/:name" element={<SupplierDetailPage />} />
         <Route path="bills" element={<BillsPage />} />
         <Route path="bills/new" element={<NewBillPage />} />
         <Route path="bills/:name" element={<BillDetailPage />} />
+        <Route path="bills/:name/edit" element={<NewBillPage />} />
         <Route path="bills/:name/return" element={<NewPurchaseReturnPage />} />
         <Route path="vouchers/new" element={<NewVoucherPage />} />
         <Route path="receipt" element={<ReceiptPage />} />

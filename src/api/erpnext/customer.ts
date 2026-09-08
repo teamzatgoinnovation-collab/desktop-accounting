@@ -34,6 +34,10 @@ export async function updateCustomer(name: string, values: Record<string, unknow
   return unwrap(env);
 }
 
+export async function deleteCustomer(name: string): Promise<void> {
+  await callZatGoApi(ZatGoApi.accounting.customersDelete, { name });
+}
+
 /** Outstanding balance from the customer's real ERPNext ledger — not independently calculated. */
 export async function getCustomerOutstanding(customerId: string): Promise<number> {
   const env = await callZatGoApi<{ closing_balance?: number }>(ZatGoApi.accounting.reportsPartyLedger, {

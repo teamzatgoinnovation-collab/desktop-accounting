@@ -33,3 +33,7 @@ export async function updateAccount(name: string, values: Record<string, unknown
   const env = await callZatGoApi<AccountOption>(ZatGoApi.accounting.accountsUpdate, { name, values });
   return unwrap(env);
 }
+
+export async function deleteAccount(name: string): Promise<void> {
+  await callZatGoApi(ZatGoApi.accounting.accountsDelete, { name });
+}

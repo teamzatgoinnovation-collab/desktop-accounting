@@ -84,6 +84,27 @@ export async function cancelPayment(name: string): Promise<void> {
   await callZatGoApi(ZatGoApi.accounting.paymentsCancel, { name });
 }
 
+/** Scoped to non-amount fields only — changing the amount would require re-running the
+ * party/invoice allocation logic, which the backend deliberately does not support editing. */
+export async function updatePaymentEntry(
+  name: string,
+  values: { modeOfPayment?: string; postingDate?: string; referenceNo?: string; costCenter?: string; project?: string },
+): Promise<PaymentEntry> {
+  const env = await callZatGoApi<PaymentEntry>(ZatGoApi.accounting.paymentsUpdate, {
+    name,
+    mode_of_payment: values.modeOfPayment,
+    posting_date: values.postingDate,
+    reference_no: values.referenceNo,
+    cost_center: values.costCenter,
+    project: values.project,
+  });
+  return unwrap(env);
+}
+
+export async function deletePaymentEntry(name: string): Promise<void> {
+  await callZatGoApi(ZatGoApi.accounting.paymentsDelete, { name });
+}
+
 export async function getPaymentEntries(params: {
   paymentType?: "Receive" | "Pay";
   partyType?: "Customer" | "Supplier";

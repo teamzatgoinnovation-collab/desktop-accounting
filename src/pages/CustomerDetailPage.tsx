@@ -15,7 +15,7 @@ import {
   TabsTrigger,
 } from "@zatgo/ui";
 import { toast } from "sonner";
-import { getCustomer, updateCustomer } from "@/api/erpnext/customer";
+import { deleteCustomer, getCustomer, updateCustomer } from "@/api/erpnext/customer";
 import { getSalesInvoices } from "@/api/erpnext/sales";
 import { getPaymentEntries } from "@/api/erpnext/payments";
 import { getPartyLedger } from "@/api/erpnext/reports";
@@ -156,6 +156,20 @@ export function CustomerDetailPage() {
     }
   };
 
+  const onDelete = async () => {
+    if (!window.confirm(`Delete customer ${form.customer_name || name}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await deleteCustomer(name);
+      toast.success("Customer deleted");
+      navigate("/customers");
+    } catch (e) {
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Delete failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const ledgerColumns = useMemo<ColumnDef<LedgerRow>[]>(
     () => [
       { header: "Date", accessorKey: "date" },
@@ -210,6 +224,9 @@ export function CustomerDetailPage() {
             </Button>
             <Button variant="outline" disabled={busy} onClick={() => void onDisable()}>
               Disable
+            </Button>
+            <Button variant="outline" disabled={busy} onClick={() => void onDelete()}>
+              Delete
             </Button>
             <Button disabled={busy} onClick={() => void onSave()}>
               Save

@@ -17,6 +17,12 @@ export function toFriendlyMessage(raw: string): string {
   if (/mandatory/i.test(message)) {
     return `A required field is missing. ${message}`;
   }
+  if (/you can disable this|is linked with|LinkExistsError/i.test(message)) {
+    return "This record can't be deleted because it's referenced by other transactions.";
+  }
+  if (/submitted documents can only be corrected|is not a draft/i.test(message)) {
+    return "This document has already been submitted — cancel and amend it instead of editing or deleting it directly.";
+  }
 
   return message || "Something went wrong. Please try again.";
 }

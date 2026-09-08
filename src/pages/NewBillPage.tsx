@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Combobox, Input, Label, PageHeader } from "@zatgo/ui";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Button, Combobox, Input, Label, LoadingState, PageHeader } from "@zatgo/ui";
 import { toast } from "sonner";
 import { getSuppliers } from "@/api/erpnext/supplier";
-import { createPurchaseEntry, getPurchaseServiceItemDefaults } from "@/api/erpnext/purchase";
+import {
+  createPurchaseEntry,
+  getPurchaseInvoice,
+  getPurchaseServiceItemDefaults,
+  submitPurchaseInvoice,
+  updatePurchaseInvoice,
+} from "@/api/erpnext/purchase";
 import { toFriendlyMessage } from "@/lib/friendly-error";
 import { money } from "@/lib/format";
 import type { CostCenter, Party, PurchaseInvoice } from "@/types/accounting";
@@ -17,9 +23,12 @@ function today(): string {
 export function NewBillPage() {
   const navigate = useNavigate();
   const [search] = useSearchParams();
+  const { name: rawName } = useParams<{ name: string }>();
+  const editingName = rawName ? decodeURIComponent(rawName) : null;
   const [suppliers, setSuppliers] = useState<Party[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [expenseAccount, setExpenseAccount] = useState<string | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(Boolean(editingName));
 
   const [supplier, setSupplier] = useState(search.get("supplier") || "");
   const [postingDate, setPostingDate] = useState(today());
@@ -47,6 +56,30 @@ export function NewBillPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!editingName) return;
+    void (async () => {
+      setLoadingExisting(true);
+      try {
+        const existing = await getPurchaseInvoice(editingName);
+        if (existing.docstatus !== 0) {
+          toast.error("This bill has already been submitted — edit it via Cancel + Amend instead.");
+          navigate(`/bills/${encodeURIComponent(editingName)}`, { replace: true });
+          return;
+        }
+        setSupplier(existing.supplier || "");
+        setPostingDate(existing.date || today());
+        setAmount(String(existing.amount ?? ""));
+        setCostCenter("");
+        setRemarks(existing.remarks || "");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to load bill");
+      } finally {
+        setLoadingExisting(false);
+      }
+    })();
+  }, [editingName]);
+
   const onSave = async () => {
     if (!supplier) {
       toast.error("Pick a supplier");
@@ -63,6 +96,18 @@ export function NewBillPage() {
     }
     setBusy(true);
     try {
+      if (editingName) {
+        await updatePurchaseInvoice(editingName, {
+          supplier,
+          amount: numericAmount,
+          postingDate,
+          costCenter: costCenter || undefined,
+          remarks: remarks || undefined,
+        });
+        toast.success("Bill updated");
+        navigate(`/bills/${encodeURIComponent(editingName)}`);
+        return;
+      }
       const invoice = await createPurchaseEntry({
         supplier,
         amount: numericAmount,
@@ -73,7 +118,7 @@ export function NewBillPage() {
       });
       setCreated(invoice);
     } catch (e) {
-      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Create failed"));
+      toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Save failed"));
     } finally {
       setBusy(false);
     }
@@ -91,6 +136,19 @@ export function NewBillPage() {
   if (created) {
     const supplierLabel = suppliers.find((s) => s.id === created.supplier)?.name || created.supplier || supplier;
     const outstanding = created.outstanding ?? Number(amount);
+    const isSubmitted = created.docstatus === 1;
+    const onSubmitDraft = async () => {
+      setBusy(true);
+      try {
+        await submitPurchaseInvoice(created.name);
+        toast.success("Bill submitted");
+        setCreated({ ...created, docstatus: 1 });
+      } catch (e) {
+        toast.error(toFriendlyMessage(e instanceof Error ? e.message : "Submit failed"));
+      } finally {
+        setBusy(false);
+      }
+    };
     return (
       <div className="space-y-6">
         <PageHeader title="Purchase created" description="ERPNext posted the accounting entry." />
@@ -110,7 +168,7 @@ export function NewBillPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <p className="text-sm text-[var(--color-muted-foreground)]">Status</p>
-              <p className="font-medium">{outstanding > 0 ? "Unpaid" : "Paid"}</p>
+              <p className="font-medium">{!isSubmitted ? "Draft" : outstanding > 0 ? "Unpaid" : "Paid"}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-[var(--color-muted-foreground)]">Outstanding</p>
@@ -118,7 +176,12 @@ export function NewBillPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
-            {outstanding > 0 ? (
+            {!isSubmitted ? (
+              <Button disabled={busy} onClick={() => void onSubmitDraft()}>
+                Submit
+              </Button>
+            ) : null}
+            {isSubmitted && outstanding > 0 ? (
               <Button
                 onClick={() =>
                   navigate(
@@ -141,14 +204,22 @@ export function NewBillPage() {
     );
   }
 
+  if (loadingExisting) return <LoadingState label="Loading bill…" />;
+
+  const cancelHref = editingName ? `/bills/${encodeURIComponent(editingName)}` : "/bills";
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="New purchase"
-        description="Record a purchase — ERPNext generates the bill and accounting entries."
+        title={editingName ? `Edit ${editingName}` : "New purchase"}
+        description={
+          editingName
+            ? "This bill is still a draft — edit it freely until it's submitted."
+            : "Record a purchase — ERPNext generates the bill and accounting entries."
+        }
         actions={
           <Button variant="outline" asChild>
-            <Link to="/bills">Cancel</Link>
+            <Link to={cancelHref}>Cancel</Link>
           </Button>
         }
       />
@@ -224,7 +295,7 @@ export function NewBillPage() {
       </div>
 
       <Button disabled={busy} onClick={() => void onSave()}>
-        Save purchase
+        {editingName ? "Save changes" : "Save purchase"}
       </Button>
     </div>
   );
