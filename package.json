@@ -18,15 +18,18 @@
     "appId": "online.zatgo.accounting-desktop",
     "productName": "ZatGo Accounting",
     "executableName": "zatgo-accounting",
-    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "files": ["dist/**", "dist-electron/**"],
-    "directories": { "output": "release" },
+    "directories": { "output": "release", "buildResources": "build" },
     "win": {
-      "target": ["portable"]
+      "target": ["portable"],
+      "artifactName": "ZatGo-Accounting-Setup.${ext}",
+      "icon": "build/icon.ico"
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "category": "Office"
+      "category": "Office",
+      "artifactName": "zatgo-accounting.${ext}",
+      "icon": "build/icon.png"
     }
   },
   "dependencies": {

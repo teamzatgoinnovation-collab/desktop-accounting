@@ -20,6 +20,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     title: "ZatGo Accounting",
+    icon: path.join(process.env.VITE_PUBLIC!, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
