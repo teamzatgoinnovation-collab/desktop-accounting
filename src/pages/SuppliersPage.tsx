@@ -26,6 +26,7 @@ type Supplier = {
   supplier_name?: string;
   supplier_type?: string;
   supplier_group?: string;
+  cr_number?: string | null;
 };
 
 export function SuppliersPage() {
@@ -35,7 +36,7 @@ export function SuppliersPage() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ supplier_name: "", email: "", phone: "" });
+  const [form, setForm] = useState({ supplier_name: "", cr_number: "", email: "", phone: "" });
 
   const load = async () => {
     setLoading(true);
@@ -70,6 +71,7 @@ export function SuppliersPage() {
       },
       { header: "Type", accessorKey: "supplier_type" },
       { header: "Group", accessorKey: "supplier_group" },
+      { header: "CR Number", accessorKey: "cr_number" },
     ],
     [],
   );
@@ -83,13 +85,14 @@ export function SuppliersPage() {
     try {
       await callZatGoApi(ZatGoApi.accounting.suppliersCreate, {
         supplier_name: form.supplier_name.trim(),
+        cr_number: form.cr_number.trim() || undefined,
         email: form.email || undefined,
         phone: form.phone || undefined,
         client_id: crypto.randomUUID(),
       });
       toast.success("Supplier created");
       setOpen(false);
-      setForm({ supplier_name: "", email: "", phone: "" });
+      setForm({ supplier_name: "", cr_number: "", email: "", phone: "" });
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Create failed");
@@ -102,7 +105,7 @@ export function SuppliersPage() {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((r) =>
-      `${r.name} ${r.supplier_type ?? ""} ${r.supplier_group ?? ""}`.toLowerCase().includes(q),
+      `${r.name} ${r.supplier_type ?? ""} ${r.supplier_group ?? ""} ${r.cr_number ?? ""}`.toLowerCase().includes(q),
     );
   }, [rows, search]);
 
@@ -131,6 +134,15 @@ export function SuppliersPage() {
                 id="sname"
                 value={form.supplier_name}
                 onChange={(e) => setForm((f) => ({ ...f, supplier_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="scr">CR Number</Label>
+              <Input
+                id="scr"
+                dir="ltr"
+                value={form.cr_number}
+                onChange={(e) => setForm((f) => ({ ...f, cr_number: e.target.value }))}
               />
             </div>
             <div className="space-y-1">

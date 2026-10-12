@@ -14,12 +14,14 @@ export async function getSupplier(name: string): Promise<Party> {
 
 export async function createSupplier(input: {
   supplierName: string;
+  crNumber?: string;
   email?: string;
   phone?: string;
   clientId: string;
 }): Promise<Party> {
   const env = await callZatGoApi<Party>(ZatGoApi.accounting.suppliersCreate, {
     supplier_name: input.supplierName,
+    cr_number: input.crNumber?.trim() || undefined,
     email: input.email || undefined,
     phone: input.phone || undefined,
     client_id: input.clientId,

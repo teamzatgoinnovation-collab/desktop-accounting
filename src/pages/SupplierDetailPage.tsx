@@ -28,6 +28,7 @@ type Supplier = {
   supplier_name?: string;
   supplier_type?: string;
   supplier_group?: string;
+  cr_number?: string | null;
   email?: string;
   phone?: string;
   disabled?: number;
@@ -57,6 +58,7 @@ export function SupplierDetailPage() {
   const [form, setForm] = useState({
     supplier_name: "",
     supplier_type: "Company",
+    cr_number: "",
     email: "",
     phone: "",
     supplier_group: "",
@@ -77,6 +79,7 @@ export function SupplierDetailPage() {
       setForm({
         supplier_name: row.supplier_name || row.name || "",
         supplier_type: row.supplier_type || "Company",
+        cr_number: row.cr_number || "",
         email: row.email || "",
         phone: row.phone || "",
         supplier_group: row.supplier_group || "",
@@ -126,6 +129,8 @@ export function SupplierDetailPage() {
       await updateSupplier(name, {
         supplier_name: form.supplier_name,
         supplier_type: form.supplier_type,
+        // Blank is sent as "" so clearing the field clears it server-side.
+        cr_number: form.cr_number.trim(),
         email: form.email || undefined,
         phone: form.phone || undefined,
         supplier_group: form.supplier_group || undefined,
@@ -251,6 +256,10 @@ export function SupplierDetailPage() {
             <div className="space-y-1">
               <Label htmlFor="stype">Type</Label>
               <Input id="stype" value={form.supplier_type} onChange={(e) => setForm((f) => ({ ...f, supplier_type: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="scr">CR Number</Label>
+              <Input id="scr" dir="ltr" value={form.cr_number} onChange={(e) => setForm((f) => ({ ...f, cr_number: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="semail">Email</Label>
