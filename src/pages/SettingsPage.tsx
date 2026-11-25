@@ -46,7 +46,7 @@ export function SettingsPage() {
     setBusy(true);
     try {
       await callZatGoApi(ZatGoApi.settings.saveSettings, {
-        doctype: "ZG Company Settings",
+        doctype: "Company Settings",
         name: settings.name,
         values: {
           enable_negative_stock: allowNegative ? 1 : 0,
@@ -91,7 +91,7 @@ export function SettingsPage() {
           <p className="text-sm text-[var(--color-muted-foreground)]">Tax ID: {settings.tax_id}</p>
         ) : (
           <p className="text-sm text-[var(--color-muted-foreground)]">
-            Set Tax ID on ZG Company Settings (or Company) for ZATCA QR seller VAT.
+            Set Tax ID on Company Settings (or Company) for ZATCA QR seller VAT.
           </p>
         )}
       </section>
